@@ -27,7 +27,7 @@ except ImportError:
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QTextEdit, QSlider, QSpinBox, QFileDialog,
-    QDialog, QDialogButtonBox, QStackedWidget
+    QDialog, QDialogButtonBox, QStackedWidget, QScrollArea
 )
 from PySide6.QtCore import Qt, QTimer, Signal, QObject, Slot, QRect, QEvent
 from PySide6.QtGui import QFont, QKeyEvent
@@ -557,9 +557,22 @@ class SurveyView(QWidget):
         self.setup_ui()
     
     def setup_ui(self):
-        layout = QVBoxLayout()
+        self.setMinimumSize(600, 800)
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+        main_layout.addWidget(scroll_area)
+        
+        scroll_widget = QWidget()
+        scroll_area.setWidget(scroll_widget)
+        
+        layout = QVBoxLayout(scroll_widget)
         layout.setSpacing(20)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setContentsMargins(30, 30, 30, 30)
         
         # タイトル
         title = QLabel("アンケート")
@@ -569,11 +582,12 @@ class SurveyView(QWidget):
         title.setFont(font)
         layout.addWidget(title)
         
-        layout.addSpacing(10)
+        layout.addSpacing(20)
         
         # NASA-TLX スライダー
         for item in config.NASATLX_ITEMS:
             label_widget = QLabel(f"{item['label']}: {item['question']}")
+            label_widget.setWordWrap(True)
             layout.addWidget(label_widget)
             
             # スライダーとその左右のラベルを横に並べるためのレイアウト
@@ -611,7 +625,7 @@ class SurveyView(QWidget):
             layout.addWidget(value_label)
             
             slider.valueChanged.connect(lambda val, lbl=value_label: lbl.setText(str(val)))
-            layout.addSpacing(10)
+            layout.addSpacing(30)
         
         # カウント入力欄（必要に応じて表示）
         self.count_label = QLabel("カウント数を入力してください:")
@@ -636,8 +650,6 @@ class SurveyView(QWidget):
         self.next_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)  # Enter/Spaceキー連打による誤作動（スキップ）を防止
         layout.addWidget(self.next_button)
         # 注: シグナル接続は goto_phase で行うため、ここでは接続しない
-        
-        self.setLayout(layout)
     
     def show_count_input(self, label_text: str = "カウント数を入力してください:"):
         """カウント入力欄を表示"""
