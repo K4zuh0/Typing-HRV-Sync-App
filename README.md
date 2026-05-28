@@ -24,8 +24,7 @@ pip install PySide6 pylsl pygame bleak pandas matplotlib
 ### ディレクトリ構成
 
 ```
-├── main.py                 # メインアプリケーション
-├── lsl_mock.py             # Mock LSL Streamer（テスト用）
+├── main.py                 # メインアプリケーション├── polar_to_lsl.py         # Polar心拍デバイス→LSL 中継器├── lsl_mock.py             # Mock LSL Streamer（テスト用）
 ├── config.py               # 実験設定・プロトコル定義
 ├── README.md               # このファイル
 ├── texts/

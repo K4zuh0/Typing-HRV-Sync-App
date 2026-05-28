@@ -576,13 +576,33 @@ class SurveyView(QWidget):
             label_widget = QLabel(f"{item['label']}: {item['question']}")
             layout.addWidget(label_widget)
             
+            # スライダーとその左右のラベルを横に並べるためのレイアウト
+            slider_layout = QHBoxLayout()
+            
+            if item['label'] == "作業成績":
+                min_text = "(不満) 0"
+                max_text = "100 (満足)"
+            else:
+                min_text = "(低い) 0"
+                max_text = "100 (高い)"
+                
+            min_label = QLabel(min_text)
+            min_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            slider_layout.addWidget(min_label)
+            
             slider = QSlider(Qt.Orientation.Horizontal)
             slider.setMinimum(0)
             slider.setMaximum(100)
             slider.setValue(50)
             slider.setTickPosition(QSlider.TickPosition.TicksBelow)
             slider.setTickInterval(10)
-            layout.addWidget(slider)
+            slider_layout.addWidget(slider)
+            
+            max_label = QLabel(max_text)
+            max_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            slider_layout.addWidget(max_label)
+            
+            layout.addLayout(slider_layout)
             
             self.sliders[item['label']] = slider
             
@@ -989,14 +1009,17 @@ class ExperimentApp(QMainWindow):
         survey_file = os.path.join(config.DATA_DIR, config.SURVEYS_CSV_TEMPLATE.format(id=id_str))
         with open(survey_file, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow(['TaskName', 'UserInputCount', 'MentalDemand', 'Frustration', 'Effort'])
+            writer.writerow(['TaskName', 'UserInputCount', 'MentalDemand', 'PhysicalDemand', 'TemporalDemand', 'Performance', 'Effort', 'Frustration'])
             for resp in self.survey_responses:
                 writer.writerow([
                     resp.get('task_name', ''),
                     resp.get('user_count', ''),
-                    resp.get('精神的欲求', ''),
-                    resp.get('フラストレーション', ''),
+                    resp.get('精神的負担', ''),
+                    resp.get('身体的負担', ''),
+                    resp.get('時間的切迫感', ''),
+                    resp.get('作業成績', ''),
                     resp.get('努力', ''),
+                    resp.get('フラストレーション', ''),
                 ])
         print(f"✓ {survey_file} を保存しました")
         
