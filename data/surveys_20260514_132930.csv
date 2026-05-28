@@ -1,0 +1,9 @@
+TaskName,UserInputCount,MentalDemand,Frustration,Effort
+Survey after Task 1,,20,31,80
+休憩 1,,20,31,80
+Task 2: Medium (写経+音声),,20,31,80
+Survey after Task 2,1,20,31,80
+休憩 2,15,20,31,80
+Task 3: High (写経+音声),15,20,31,80
+Survey after Task 3,0,20,31,80
+Recovery,0,20,31,80
