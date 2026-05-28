@@ -973,13 +973,15 @@ class ExperimentApp(QMainWindow):
     
     def save_data(self):
         """データを CSV ファイルで保存"""
-        if not os.path.exists(config.DATA_DIR):
-            os.makedirs(config.DATA_DIR)
-        
         id_str = self.subject_id or datetime.now().strftime("%Y%m%d_%H%M%S")
         
+        # 被験者ごとの専用フォルダを作成
+        subject_dir = os.path.join(config.DATA_DIR, id_str)
+        if not os.path.exists(subject_dir):
+            os.makedirs(subject_dir)
+        
         # 1. ハートレートデータ
-        hr_file = os.path.join(config.DATA_DIR, config.HEARTRATE_CSV_TEMPLATE.format(id=id_str))
+        hr_file = os.path.join(subject_dir, config.HEARTRATE_CSV_TEMPLATE.format(id=id_str))
         with open(hr_file, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(['Timestamp', 'PPI'])
@@ -988,7 +990,7 @@ class ExperimentApp(QMainWindow):
         print(f"✓ {hr_file} を保存しました")
         
         # 2. キーストロークデータ
-        key_file = os.path.join(config.DATA_DIR, config.KEYSTROKES_CSV_TEMPLATE.format(id=id_str))
+        key_file = os.path.join(subject_dir, config.KEYSTROKES_CSV_TEMPLATE.format(id=id_str))
         with open(key_file, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(['Timestamp', 'EventType', 'KeyCode', 'Char'])
@@ -997,7 +999,7 @@ class ExperimentApp(QMainWindow):
         print(f"✓ {key_file} を保存しました")
         
         # 3. イベントデータ
-        evt_file = os.path.join(config.DATA_DIR, config.EVENTS_CSV_TEMPLATE.format(id=id_str))
+        evt_file = os.path.join(subject_dir, config.EVENTS_CSV_TEMPLATE.format(id=id_str))
         with open(evt_file, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(['Timestamp', 'EventName'])
@@ -1006,7 +1008,7 @@ class ExperimentApp(QMainWindow):
         print(f"✓ {evt_file} を保存しました")
         
         # 4. アンケートデータ
-        survey_file = os.path.join(config.DATA_DIR, config.SURVEYS_CSV_TEMPLATE.format(id=id_str))
+        survey_file = os.path.join(subject_dir, config.SURVEYS_CSV_TEMPLATE.format(id=id_str))
         with open(survey_file, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(['TaskName', 'UserInputCount', 'MentalDemand', 'PhysicalDemand', 'TemporalDemand', 'Performance', 'Effort', 'Frustration'])
