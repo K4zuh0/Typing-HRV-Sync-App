@@ -50,10 +50,10 @@ class AudioPlayer(threading.Thread):
     """Task 2, 3 用のバックグラウンド音声再生
     
     音声ファイルは既に1.5秒間隔で0~9の数字をランダムに流す仕様
-    タスク期間中（5分間）ループ再生する
+    タスク期間中ループ再生する
     """
     
-    def __init__(self, audio_file: str, duration_seconds: int = 300):
+    def __init__(self, audio_file: str, duration_seconds: int = 180):
         super().__init__(daemon=True)
         self.running = False
         self.audio_file = audio_file
@@ -885,10 +885,10 @@ class ExperimentApp(QMainWindow):
                 # Task 2 と Task 3 で異なる音声ファイルを使用
                 if "Task 2" in self.current_phase.name:
                     audio_file = config.AUDIO_FILE_LEVEL2
-                    task_duration = 5 * 60  # 5分
                 else:  # Task 3
                     audio_file = config.AUDIO_FILE_LEVEL3
-                    task_duration = 5 * 60  # 5分
+                
+                task_duration = self.current_phase.duration_seconds
                 
                 self.audio_player = AudioPlayer(audio_file, task_duration)
                 self.audio_player.start()

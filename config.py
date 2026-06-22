@@ -32,19 +32,19 @@ class Phase:
 # 実験プロトコルの定義（時系列順に配列として定義。main.pyはこの配列に従って画面を遷移させます）
 PROTOCOL: List[Phase] = [
     Phase("順化中", 3 * 60, "cross", False, False, False),
-    Phase("ベースライン測定中", 5 * 60, "cross", True, False, False),
+    Phase("ベースライン測定中", 3 * 60, "cross", True, False, False),
     Phase("Instruction Task 1", 0, "instruction", False, False, False),
-    Phase("Task 1: Low (写経)", 5 * 60, "typing", True, False, False),
+    Phase("Task 1: Low (写経)", 3 * 60, "typing", True, False, False),
     Phase("Survey after Task 1", 1, "survey", False, False, False),  # duration は無視（ユーザー操作で進む）
     Phase("休憩 1", 3 * 60, "cross", True, False, False),
     Phase("Instruction Task 2", 0, "instruction", False, False, False),
-    Phase("Task 2: Medium (写経+音声)", 5 * 60, "typing", True, True, False),
+    Phase("Task 2: Medium (写経+音声)", 3 * 60, "typing", True, True, False),
     Phase("Survey after Task 2", 1, "survey", False, False, True),  # カウント入力必須
     Phase("休憩 2", 3 * 60, "cross", True, False, False),
     Phase("Instruction Task 3", 0, "instruction", False, False, False),
-    Phase("Task 3: High (写経+音声)", 5 * 60, "typing", True, True, False),
+    Phase("Task 3: High (写経+音声)", 3 * 60, "typing", True, True, False),
     Phase("Survey after Task 3", 1, "survey", False, False, True),  # カウント入力必須
-    Phase("Recovery", 5 * 60, "cross", True, False, False),
+    Phase("Recovery", 3 * 60, "cross", True, False, False),
     Phase("実験完了", 1, "end", False, False, False),
 ]
 
