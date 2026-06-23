@@ -214,7 +214,7 @@ class KeyLogger:
     """
     
     def __init__(self):
-        self.data: List[Tuple[float, str, int, str]] = []  # (timestamp, event_type, keycode, char)
+        self.data: List[Tuple[float, str, int, str, str]] = []  # (timestamp, event_type, keycode, char, current_phase)
         self._lock = threading.Lock()
         
         # 【要件4: オートリピートの疑似的な除外】
@@ -225,6 +225,15 @@ class KeyLogger:
         # タスク実行中のみ記録するためのフラグ
         self.is_logging_active = False
         self.listener = None
+        self.current_phase_name = ""
+        
+    # 【目的】現在のフェーズ名をセットする
+    # 【役割（Why）】
+    # キーストロークデータの各行にフェーズ名を紐づけ、後からデータを分析する際に
+    # どのタスク中のタイピングだったかを明確に識別できるようにするため。
+    def set_current_phase(self, phase_name: str):
+        with self._lock:
+            self.current_phase_name = phase_name
     
     def start(self):
         """【要件1】pynput のリスナーを別スレッドで開始"""
@@ -284,7 +293,7 @@ class KeyLogger:
             elif hasattr(key, 'value') and hasattr(key.value, 'vk'):
                 keycode = key.value.vk
                 
-            self.data.append((timestamp, "KeyDown", keycode, char))
+            self.data.append((timestamp, "KeyDown", keycode, char, self.current_phase_name))
     
     def on_release(self, key):
         """キーが離された時のコールバック"""
@@ -311,9 +320,9 @@ class KeyLogger:
             elif hasattr(key, 'value') and hasattr(key.value, 'vk'):
                 keycode = key.value.vk
                 
-            self.data.append((timestamp, "KeyUp", keycode, char))
+            self.data.append((timestamp, "KeyUp", keycode, char, self.current_phase_name))
     
-    def get_data(self) -> List[Tuple[float, str, int, str]]:
+    def get_data(self) -> List[Tuple[float, str, int, str, str]]:
         """データ取得"""
         with self._lock:
             return list(self.data)
@@ -440,8 +449,21 @@ class InstructionView(QWidget):
         self.desc_label.setText(description)
 
 
+# 【目的】ペースト（Ctrl+V等）および右クリックメニューを無効化したテキスト入力欄を作成する
+# 【役割（Why）】
+# 実験の要件である「コピペ禁止」を完全に満たし、純粋なタイピング動態のみを記録するため。
+class NoPasteTextEdit(QTextEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        # 右クリックメニューの無効化
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+
+    def insertFromMimeData(self, source):
+        # ペーストイベントを完全に無視する
+        pass
+
 class TypingView(QWidget):
-    """タイピングタスク画面: 左に原文、右に入力欄"""
+    """タイピングタスク画面: 上に原文、下に入力欄"""
     
     def __init__(self):
         super().__init__()
@@ -453,8 +475,9 @@ class TypingView(QWidget):
         self.setObjectName("TypingView")
         self.setStyleSheet("QWidget#TypingView { background-color: #ECEFF1; }")
         
-        layout = QHBoxLayout()
-        # 画面端の余白と、左右のテキストボックスの間の間隔（Spacing）を設定します。
+        # 【要件対応】上下セパレートレイアウト（絶対鉄則）
+        layout = QVBoxLayout()
+        # 画面端の余白と、上下のテキストボックスの間の間隔（Spacing）を設定します。
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
         
@@ -488,9 +511,10 @@ class TypingView(QWidget):
         layout.addWidget(self.read_text, 1)
         
         # ==========================================
-        # 右側: 入力テキストボックス
+        # 下側: 入力テキストボックス
         # ==========================================
-        self.input_text = QTextEdit()
+        # コピペ禁止クラスを利用
+        self.input_text = NoPasteTextEdit()
         self.input_text.setFont(font)
         
         # 【UI改善】右側（入力用）用のQSS：真っ白な背景にし、入力中（フォーカス時）は
@@ -726,6 +750,7 @@ class ExperimentApp(QMainWindow):
         self.phase_index = 0
         self.phase_start_time = 0.0
         self.current_phase: Optional[config.Phase] = None
+        self.protocol: List[config.Phase] = []
         
         # ロガー
         self.lsl_logger = LSLLogger()
@@ -792,8 +817,13 @@ class ExperimentApp(QMainWindow):
                         return True
         return super().eventFilter(obj, event)
     
-    def start_experiment(self):
+    # 【目的】実験を開始し、指定されたパターンでプロトコルを生成・実行する
+    # 【役割（Why）】
+    # 実験者が選択したラテン方格パターン（A/B/C）に従って、
+    # タスクの順序効果を統制した正しいシーケンスをロードして実験を進めるため。
+    def start_experiment(self, pattern: str):
         """実験開始"""
+        self.protocol = config.get_protocol(pattern)
         
         # LSL ロギング開始 (connect処理はスレッド内で非同期に行われます)
         self.lsl_logger.start()
@@ -811,7 +841,7 @@ class ExperimentApp(QMainWindow):
         """
         指定されたフェーズへ遷移する（画面とロジックの切り替え）
         
-        引数 phase_index によって config.PROTOCOL の何番目を実行するか決定し、
+        引数 phase_index によって protocol の何番目を実行するか決定し、
         そのフェーズの view_type に応じて適切な画面（QStackedWidgetの対象）を表示します。
         """
         # 前フェーズのオーディオを停止
@@ -820,13 +850,14 @@ class ExperimentApp(QMainWindow):
             self.audio_player = None
         
         # 全フェーズが終了していれば実験完了処理へ
-        if phase_index >= len(config.PROTOCOL):
+        if phase_index >= len(self.protocol):
             self.end_experiment()
             return
         
         self.phase_index = phase_index
-        self.current_phase = config.PROTOCOL[phase_index]
+        self.current_phase = self.protocol[phase_index]
         self.phase_start_time = local_clock()
+        self.key_logger.set_current_phase(self.current_phase.name)
         
         # イベントログに記録
         self.event_logger.log_event(f"開始: {self.current_phase.name}")
@@ -861,12 +892,16 @@ class ExperimentApp(QMainWindow):
             self.typing_view.clear()
             
             # Task に応じたテキストファイルを読み込み
-            if "Task 1" in self.current_phase.name:
+            if "Vanilla" in self.current_phase.name or "バニラ" in self.current_phase.name:
+                text_file = config.TEXT_FILES.get("vanilla", "Vanilla.txt")
+            elif "Task 1" in self.current_phase.name:
                 text_file = config.TEXT_FILES["task1"]
             elif "Task 2" in self.current_phase.name:
                 text_file = config.TEXT_FILES["task2"]
             elif "Task 3" in self.current_phase.name:
                 text_file = config.TEXT_FILES["task3"]
+            else:
+                text_file = "Task1.txt"
             
             text_path = os.path.join(config.TEXT_DIR, text_file)
             self.typing_view.load_text(text_path)
@@ -896,7 +931,7 @@ class ExperimentApp(QMainWindow):
         elif self.current_phase.view_type == "survey":
             # アンケート画面
             # The survey is about the previous phase (the task)
-            previous_phase = config.PROTOCOL[self.phase_index - 1]
+            previous_phase = self.protocol[self.phase_index - 1]
 
             if self.current_phase.requires_count_input:
                 if "Task 2" in previous_phase.name:
@@ -950,7 +985,7 @@ class ExperimentApp(QMainWindow):
         # The survey is about the previous phase (the task), not the current survey phase.
         previous_phase_index = self.phase_index - 1
         if previous_phase_index >= 0:
-            task_name = config.PROTOCOL[previous_phase_index].name
+            task_name = self.protocol[previous_phase_index].name
         else:
             task_name = "N/A" # Should not happen in this protocol
         responses['task_name'] = task_name
@@ -1005,9 +1040,9 @@ class ExperimentApp(QMainWindow):
         key_file = os.path.join(subject_dir, config.KEYSTROKES_CSV_TEMPLATE.format(id=id_str))
         with open(key_file, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow(['Timestamp', 'EventType', 'KeyCode', 'Char'])
-            for ts, evt_type, keycode, char in self.key_logger.get_data():
-                writer.writerow([ts, evt_type, keycode, char])
+            writer.writerow(['Timestamp', 'EventType', 'KeyCode', 'Char', 'Current_Phase'])
+            for ts, evt_type, keycode, char, phase_name in self.key_logger.get_data():
+                writer.writerow([ts, evt_type, keycode, char, phase_name])
         print(f"✓ {key_file} を保存しました")
         
         # 3. イベントデータ
@@ -1040,20 +1075,59 @@ class ExperimentApp(QMainWindow):
         print("\n✓ すべてのデータを保存しました")
 
 
-def show_subject_id_dialog(parent=None) -> Optional[str]:
-    """被験者 ID 入力ダイアログ"""
-    from PySide6.QtWidgets import QInputDialog
+# 【目的】被験者IDとタスク提示順序のパターンを入力させるダイアログを表示する
+# 【役割（Why）】
+# 1回の実験ごとに適切なデータを紐づけるため（ID）。
+# また、ラテン方格法によるパターン（A/B/C）を実験者が明示的に選べるようにすることで、
+# プロトコルのランダム化に伴う「被験者ごとの割り当ての偏りや把握漏れ」を防ぐためです。
+def show_startup_dialog(parent=None) -> Tuple[Optional[str], str]:
+    from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QRadioButton, QDialogButtonBox, QButtonGroup
     
-    id_str, ok = QInputDialog.getText(
-        parent,
-        "被験者情報入力",
-        "被験者 ID を入力してください (省略可):",
-        text=""
-    )
+    dialog = QDialog(parent)
+    dialog.setWindowTitle("実験開始設定")
+    dialog.setMinimumWidth(350)
     
-    if ok:
-        return id_str
-    return None
+    layout = QVBoxLayout(dialog)
+    
+    id_layout = QHBoxLayout()
+    id_layout.addWidget(QLabel("被験者 ID:"))
+    id_input = QLineEdit()
+    id_layout.addWidget(id_input)
+    layout.addLayout(id_layout)
+    
+    layout.addSpacing(10)
+    layout.addWidget(QLabel("プロトコルパターン（ラテン方格）:"))
+    pattern_group = QButtonGroup(dialog)
+    
+    radio_a = QRadioButton("A: Task1 -> Task2 -> Task3")
+    radio_b = QRadioButton("B: Task2 -> Task3 -> Task1")
+    radio_c = QRadioButton("C: Task3 -> Task1 -> Task2")
+    
+    radio_a.setChecked(True)
+    
+    pattern_group.addButton(radio_a, 1)
+    pattern_group.addButton(radio_b, 2)
+    pattern_group.addButton(radio_c, 3)
+    
+    layout.addWidget(radio_a)
+    layout.addWidget(radio_b)
+    layout.addWidget(radio_c)
+    layout.addSpacing(10)
+    
+    buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+    buttons.accepted.connect(dialog.accept)
+    buttons.rejected.connect(dialog.reject)
+    layout.addWidget(buttons)
+    
+    if dialog.exec() == QDialog.DialogCode.Accepted:
+        selected_id = pattern_group.checkedId()
+        pattern = "A"
+        if selected_id == 2:
+            pattern = "B"
+        elif selected_id == 3:
+            pattern = "C"
+        return id_input.text(), pattern
+    return None, "A"
 
 
 def main():
@@ -1063,13 +1137,16 @@ def main():
     window = ExperimentApp()
     window.show()
 
-    # 被験者 ID 入力
-    subject_id = show_subject_id_dialog() or ""
+    # 被験者設定とパターン選択
+    subject_id, pattern = show_startup_dialog()
+    if subject_id is None:
+        # キャンセルされた場合は終了
+        sys.exit(0)
 
     window.subject_id = subject_id
 
     # 実験開始
-    window.start_experiment()
+    window.start_experiment(pattern)
     
     sys.exit(app.exec())
 

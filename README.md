@@ -15,11 +15,24 @@
 
 実行環境: Python 3.9 以上
 
-以下のコマンドで、必要な外部ライブラリを一括インストールしてください。
+依存関係がシステム全体に影響を与えないよう、**仮想環境（.venv）**を作成して実行することを強く推奨します。以下の手順でセットアップしてください。
 
 ```bash
-pip install PySide6 pylsl pygame bleak pandas matplotlib
+# 1. 仮想環境の作成
+python -m venv .venv
+
+# 2. 仮想環境のアクティベート（有効化）
+# 【Windowsの場合】
+.\.venv\Scripts\activate
+# 【Mac/Linuxの場合】
+source .venv/bin/activate
+
+# 3. 必要なライブラリの一括インストール（必ずアクティベートした状態で実行）
+pip install -r requirements.txt
+# または
+pip install PySide6 pylsl pygame bleak pandas matplotlib pynput
 ```
+※ターミナルの行頭に `(.venv)` と表示されていれば、正しく仮想環境が有効化されています。以降は単に `python main.py` と打つだけで仮想環境のPythonが実行されます。
 
 ### ディレクトリ構成
 
@@ -28,6 +41,7 @@ pip install PySide6 pylsl pygame bleak pandas matplotlib
 ├── config.py               # 実験設定・プロトコル定義
 ├── README.md               # このファイル
 ├── texts/
+│   ├── Vanilla.txt        # バニラベースライン用写経テキスト
 │   ├── Task1.txt          # Task 1 用写経テキスト
 │   ├── Task2.txt          # Task 2 用写経テキスト
 │   └── Task3.txt          # Task 3 用写経テキスト
@@ -58,6 +72,7 @@ pip install PySide6 pylsl pygame bleak pandas matplotlib
 
 各 Task 用の写経テキストを準備してください：
 
+- **Vanilla.txt** - バニラベースライン（順化後）用の平易な写経テキスト
 - **Task1.txt** - Task 1（Low 負荷）用の写経テキスト
 - **Task2.txt** - Task 2（Medium 負荷）用の写経テキスト  
 - **Task3.txt** - Task 3（High 負荷）用の写経テキスト
@@ -67,21 +82,24 @@ pip install PySide6 pylsl pygame bleak pandas matplotlib
 # 各 Task で異なる難易度のテキストを準備することを推奨
 ```
 
-### 実験プロトコル
+### 実験プロトコル（ラテン方格対応）
+
+※タスク1〜3の順序は、アプリ起動時にA/B/Cのいずれかのパターンを選択してランダム化（カウンターバランス）を行います。
 
 | フェーズ | 画面 | 時間 | 説明 |
 |---------|------|------|------|
 | 順化 | Cross View | 3分 | 環境への適応。LSLデータは破棄 |
-| ベースライン | Cross View | 5分 | LSLデータ記録開始 |
-| Task 1: Low | Typing View | 5分 | 写経のみ（音声なし） |
-| Survey 1 | Survey View | - | NASA-TLX 3項目評価 |
+| バニラベースライン | Typing View | 3分 | 認知的負荷ゼロのタイピング（Vanilla.txt）。個人差の基準値 |
 | Rest 1 | Cross View | 3分 | 休憩と回復 |
-| Task 2: Medium | Typing View | 5分 | 写経 + 音声【audio_level2.wav】再生（1.5秒間隔で0~9をランダムに読み上げ） |
-| Survey 2 | Survey View | - | 聞こえた『7』の個数を入力 + NASA-TLX |
+| Task 1: Low | Typing View | 3分 | 写経のみ（音声なし） |
+| Survey 1 | Survey View | - | NASA-TLX 評価 |
 | Rest 2 | Cross View | 3分 | 休憩と回復 |
-| Task 3: High | Typing View | 5分 | 写経 + 音声【audio_level3.wav】再生（1.5秒間隔で0~9をランダムに読み上げ） |
+| Task 2: Medium | Typing View | 3分 | 写経 + 音声【audio_level2.wav】再生（1.5秒間隔で0~9をランダムに読み上げ） |
+| Survey 2 | Survey View | - | 聞こえた『7』の個数を入力 + NASA-TLX |
+| Rest 3 | Cross View | 3分 | 休憩と回復 |
+| Task 3: High | Typing View | 3分 | 写経 + 音声【audio_level3.wav】再生（1.5秒間隔で0~9をランダムに読み上げ） |
 | Survey 3 | Survey View | - | 聞こえた『1』と『9』の合計個数を入力 + NASA-TLX |
-| Recovery | Cross View | 5分 | 最終的なベースライン記録 |
+| Recovery | Cross View | 3分 | 最終的なベースライン記録 |
 
 ## 3. 実験の実施手順（使い方）
 
@@ -107,6 +125,7 @@ python polar_to_lsl.py
 python main.py
 ```
 - 最初に「被験者 ID」の入力ダイアログが出ます（例：`sub01`）。ここで入力した名前がファイル名になります。
+- 同ダイアログで「プロトコルパターン（ラテン方格）」を選択します。被験者ごとにA/B/Cの異なるタスク順序を明示的に選択してください。
 - 自動的に裏で動いているLSLストリームを見つけ出し、実験画面が開きます。
 - あとは画面の指示と自動タイマーに従って、被験者にタスクを進めてもらいます。
 - 最後の「終了画面」が出た瞬間に、すべてのデータが `data/` フォルダにCSVとして一括保存されます。
@@ -122,11 +141,11 @@ python main.py
 - `surveys_XXX.csv`
 
 ### ① `keystrokes_XXX.csv`（タイピング動態ログ）
-| Timestamp | EventType | KeyCode | Char |
-|-----------|-----------|---------|------|
-| 12345.678 | KeyDown   | 65      | a    |
-| 12345.750 | KeyUp     | 65      | a    |
-* **意味**: キーボード入力の開始と終了を時系列で記録します。`Timestamp` はアプリ内部で使う同一時計の秒単位タイムスタンプです。
+| Timestamp | EventType | KeyCode | Char | Current_Phase |
+|-----------|-----------|---------|------|---------------|
+| 12345.678 | KeyDown   | 65      | a    | Task 1: Low (写経) |
+| 12345.750 | KeyUp     | 65      | a    | Task 1: Low (写経) |
+* **意味**: キーボード入力の開始と終了を時系列で記録します。`Timestamp` はアプリ内部で使う同一時計の秒単位タイムスタンプです。`Current_Phase` 列にはそのタイピングがどのタスク中に行われたかが記録されます。
 * **分析用途**: KeyDown→KeyUpの差分から「滞空時間（Dwell Time）」を計算し、KeyUp→次のKeyDownの差分から「キー間時間（Flight Time / IKI）」を算出できます。こうした指標は認知負荷状態や集中力の変化を検出するのに有用です。
 
 ### ② `heartrate_XXX.csv`（心拍間隔・PPIデータ）
