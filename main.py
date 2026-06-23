@@ -371,6 +371,7 @@ class CrossView(QWidget):
     
     def setup_ui(self):
         self.setObjectName("CrossView")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("QWidget#CrossView { background-color: #1A1A1A; }")
 
         layout = QVBoxLayout()
