@@ -577,7 +577,8 @@ class SurveyView(QWidget):
     def __init__(self):
         super().__init__()
         self.sliders: Dict[str, QSlider] = {}
-        self.count_spinbox: Optional[QSpinBox] = None
+        self.count_spinbox_1: Optional[QSpinBox] = None
+        self.count_spinbox_2: Optional[QSpinBox] = None
         self.setup_ui()
     
     def setup_ui(self):
@@ -651,16 +652,29 @@ class SurveyView(QWidget):
             slider.valueChanged.connect(lambda val, lbl=value_label: lbl.setText(str(val)))
             layout.addSpacing(30)
         
-        # カウント入力欄（必要に応じて表示）
-        self.count_label = QLabel("カウント数を入力してください:")
-        self.count_label.hide()
-        layout.addWidget(self.count_label)
+        # カウント入力欄1（Task 2: 7のカウント / Task 3: 1のカウント）
+        self.count_label_1 = QLabel("カウント数を入力してください:")
+        self.count_label_1.hide()
+        layout.addWidget(self.count_label_1)
         
-        self.count_spinbox = QSpinBox()
-        self.count_spinbox.setMinimum(0)
-        self.count_spinbox.setMaximum(100)
-        self.count_spinbox.setVisible(False)
-        layout.addWidget(self.count_spinbox)
+        self.count_spinbox_1 = QSpinBox()
+        self.count_spinbox_1.setMinimum(0)
+        self.count_spinbox_1.setMaximum(100)
+        self.count_spinbox_1.setVisible(False)
+        layout.addWidget(self.count_spinbox_1)
+        
+        layout.addSpacing(10)
+        
+        # カウント入力欄2（Task 3: 9のカウント用）
+        self.count_label_2 = QLabel("")
+        self.count_label_2.hide()
+        layout.addWidget(self.count_label_2)
+        
+        self.count_spinbox_2 = QSpinBox()
+        self.count_spinbox_2.setMinimum(0)
+        self.count_spinbox_2.setMaximum(100)
+        self.count_spinbox_2.setVisible(False)
+        layout.addWidget(self.count_spinbox_2)
         
         layout.addSpacing(20)
         layout.addStretch()
@@ -682,22 +696,41 @@ class SurveyView(QWidget):
         # 注: シグナル接続は goto_phase で行うため、ここでは接続しない
     
     def show_count_input(self, label_text: str = "カウント数を入力してください:"):
-        """カウント入力欄を表示"""
-        self.count_label.setText(label_text)
-        self.count_label.show()
-        self.count_spinbox.show()
-        self.count_spinbox.setValue(0)
+        """カウント入力欄を1つだけ表示（Task 2用）"""
+        self.count_label_1.setText(label_text)
+        self.count_label_1.show()
+        self.count_spinbox_1.show()
+        self.count_spinbox_1.setValue(0)
+        # 2つ目は非表示
+        self.count_label_2.hide()
+        self.count_spinbox_2.hide()
+    
+    def show_dual_count_input(self, label_text_1: str, label_text_2: str):
+        """カウント入力欄を2つ表示（Task 3用: 1の回数と9の回数を別々に入力）"""
+        self.count_label_1.setText(label_text_1)
+        self.count_label_1.show()
+        self.count_spinbox_1.show()
+        self.count_spinbox_1.setValue(0)
+        
+        self.count_label_2.setText(label_text_2)
+        self.count_label_2.show()
+        self.count_spinbox_2.show()
+        self.count_spinbox_2.setValue(0)
     
     def hide_count_input(self):
-        """カウント入力欄を非表示"""
-        self.count_label.hide()
-        self.count_spinbox.hide()
+        """カウント入力欄をすべて非表示"""
+        self.count_label_1.hide()
+        self.count_spinbox_1.hide()
+        self.count_label_2.hide()
+        self.count_spinbox_2.hide()
     
     def get_responses(self) -> Dict[str, int]:
         """アンケート回答を取得"""
         responses = {label: slider.value() for label, slider in self.sliders.items()}
-        if self.count_spinbox.isVisible():
-            responses['count'] = self.count_spinbox.value()
+        if self.count_spinbox_1.isVisible():
+            responses['count_1'] = self.count_spinbox_1.value()
+        if self.count_spinbox_2.isVisible():
+            responses['count_2'] = self.count_spinbox_2.value()
         return responses
 
 
@@ -888,7 +921,7 @@ class ExperimentApp(QMainWindow):
             elif "Task 2" in self.current_phase.name:
                 desc = "表示されたテキストを写経してください。\n\nまた、同時に音声が流れます。\n読み上げられた数字の「7」の回数をカウントしてください。"
             elif "Task 3" in self.current_phase.name:
-                desc = "表示されたテキストを写経してください。\n\nまた、同時に音声が流れます。\n読み上げられた数字の「1」と「9」の合計回数をカウントしてください。"
+                desc = "表示されたテキストを写経してください。\n\nまた、同時に音声が流れます。\n読み上げられた数字の「1」の回数と「9」の回数をそれぞれ別々にカウントしてください。"
             
             self.instruction_view.set_instruction(title, desc)
             self.stacked_widget.setCurrentWidget(self.instruction_view)
@@ -944,8 +977,11 @@ class ExperimentApp(QMainWindow):
                     # Task 2: 音声で読み上げられた「7」の個数をカウント
                     self.survey_view.show_count_input("タスク中に聞こえた『7』の個数を入力してください:")
                 elif "Task 3" in previous_phase.name:
-                    # Task 3: 音声で読み上げられた「1」と「9」の合計個数をカウント
-                    self.survey_view.show_count_input("タスク中に聞こえた『1』と『9』の合計個数を入力してください:")
+                    # Task 3: 音声で読み上げられた「1」の個数と「9」の個数をそれぞれ入力
+                    self.survey_view.show_dual_count_input(
+                        "タスク中に聞こえた『1』の個数を入力してください:",
+                        "タスク中に聞こえた『9』の個数を入力してください:"
+                    )
                 else:
                     # Fallback: if requires_count_input is true but we don't have a specific question, hide it.
                     self.survey_view.hide_count_input()
@@ -999,9 +1035,11 @@ class ExperimentApp(QMainWindow):
         # カウント情報（被験者の入力値）の記録
         # 正解数は以下のテキストファイルに記載されています
         # - Task 2: audio/audio_level2.wav_answers.txt（7の正解個数）
-        # - Task 3: audio/audio_level3.wav_answers.txt（1と9の合計正解個数）
-        if 'count' in responses:
-            responses['user_count'] = responses.pop('count')  # ユーザーが入力した個数
+        # - Task 3: audio/audio_level3.wav_answers.txt（1の正解個数と9の正解個数）
+        if 'count_1' in responses:
+            responses['user_count_1'] = responses.pop('count_1')  # ユーザーが入力した個数（Task2: 7の個数 / Task3: 1の個数）
+        if 'count_2' in responses:
+            responses['user_count_2'] = responses.pop('count_2')  # ユーザーが入力した個数（Task3: 9の個数）
         
         self.survey_responses.append(responses)
         self.event_logger.log_event(f"提出: {self.current_phase.name}")
@@ -1064,11 +1102,12 @@ class ExperimentApp(QMainWindow):
         survey_file = os.path.join(subject_dir, config.SURVEYS_CSV_TEMPLATE.format(id=id_str))
         with open(survey_file, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow(['TaskName', 'UserInputCount', 'MentalDemand', 'PhysicalDemand', 'TemporalDemand', 'Performance', 'Effort', 'Frustration'])
+            writer.writerow(['TaskName', 'UserInputCount_1', 'UserInputCount_2', 'MentalDemand', 'PhysicalDemand', 'TemporalDemand', 'Performance', 'Effort', 'Frustration'])
             for resp in self.survey_responses:
                 writer.writerow([
                     resp.get('task_name', ''),
-                    resp.get('user_count', ''),
+                    resp.get('user_count_1', ''),
+                    resp.get('user_count_2', ''),
                     resp.get('精神的負担', ''),
                     resp.get('身体的負担', ''),
                     resp.get('時間的切迫感', ''),
