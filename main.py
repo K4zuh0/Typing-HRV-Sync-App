@@ -665,14 +665,20 @@ class SurveyView(QWidget):
         layout.addSpacing(20)
         layout.addStretch()
         
-        # 次へボタン
+        # 【修正】次へボタンをスクロールエリアの外（main_layout）に配置し、
+        # 画面サイズが小さくても常に下部に固定表示されるように変更します。
         self.next_button = QPushButton("次へ")
         font = QFont()
         font.setPointSize(12)
         self.next_button.setFont(font)
         self.next_button.setMinimumHeight(40)
         self.next_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)  # Enter/Spaceキー連打による誤作動（スキップ）を防止
-        layout.addWidget(self.next_button)
+        
+        button_layout = QVBoxLayout()
+        button_layout.setContentsMargins(30, 10, 30, 30)
+        button_layout.addWidget(self.next_button)
+        
+        main_layout.addLayout(button_layout)
         # 注: シグナル接続は goto_phase で行うため、ここでは接続しない
     
     def show_count_input(self, label_text: str = "カウント数を入力してください:"):
