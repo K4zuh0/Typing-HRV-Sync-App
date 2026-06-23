@@ -27,7 +27,8 @@ except ImportError:
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QTextEdit, QSlider, QSpinBox, QFileDialog,
-    QDialog, QDialogButtonBox, QStackedWidget, QScrollArea
+    QDialog, QDialogButtonBox, QStackedWidget, QScrollArea,
+    QButtonGroup, QRadioButton
 )
 from PySide6.QtCore import Qt, QTimer, Signal, QObject, Slot, QRect, QEvent
 from PySide6.QtGui import QFont, QKeyEvent
@@ -369,6 +370,9 @@ class CrossView(QWidget):
         self.setup_ui()
     
     def setup_ui(self):
+        self.setObjectName("CrossView")
+        self.setStyleSheet("QWidget#CrossView { background-color: #1A1A1A; }")
+
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -376,23 +380,24 @@ class CrossView(QWidget):
         # ストレッチで余白を確保
         layout.addStretch()
         
-        # 中央に「+」マーク
-        plus_label = QLabel("+")
+        # 中央にアンカーテキスト
+        anchor_label = QLabel("リラックスしてお待ちください")
         font = QFont()
-        font.setPointSize(120)
-        font.setBold(True)
-        plus_label.setFont(font)
-        plus_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(plus_label)
+        font.setPointSize(24)
+        anchor_label.setFont(font)
+        anchor_label.setStyleSheet("color: #555555;")
+        anchor_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(anchor_label)
         
         layout.addStretch()
         
         # 下部にフェーズ名と残り時間を表示
         self.info_label = QLabel()
         self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        font = QFont()
-        font.setPointSize(12)
-        self.info_label.setFont(font)
+        self.info_label.setStyleSheet("color: #555555;")
+        font_info = QFont()
+        font_info.setPointSize(12)
+        self.info_label.setFont(font_info)
         layout.addWidget(self.info_label)
         layout.addSpacing(20)
         
@@ -576,7 +581,7 @@ class SurveyView(QWidget):
     
     def __init__(self):
         super().__init__()
-        self.sliders: Dict[str, QSlider] = {}
+        self.radio_groups: Dict[str, QButtonGroup] = {}
         self.count_spinbox_1: Optional[QSpinBox] = None
         self.count_spinbox_2: Optional[QSpinBox] = None
         self.setup_ui()
@@ -615,41 +620,41 @@ class SurveyView(QWidget):
             label_widget.setWordWrap(True)
             layout.addWidget(label_widget)
             
-            # スライダーとその左右のラベルを横に並べるためのレイアウト
-            slider_layout = QHBoxLayout()
+            # ラジオボタンとその左右のラベルを横に並べるためのレイアウト
+            radio_layout = QHBoxLayout()
             
             if item['label'] == "作業成績":
                 min_text = "(不満) 0"
-                max_text = "100 (満足)"
+                max_text = "10 (満足)"
             else:
                 min_text = "(低い) 0"
-                max_text = "100 (高い)"
+                max_text = "10 (高い)"
                 
             min_label = QLabel(min_text)
             min_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            slider_layout.addWidget(min_label)
+            radio_layout.addWidget(min_label)
             
-            slider = QSlider(Qt.Orientation.Horizontal)
-            slider.setMinimum(0)
-            slider.setMaximum(100)
-            slider.setValue(50)
-            slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-            slider.setTickInterval(10)
-            slider_layout.addWidget(slider)
+            # 0〜10のラジオボタンを作成
+            buttons_layout = QHBoxLayout()
+            buttons_layout.setSpacing(10)
+            
+            group = QButtonGroup(self)
+            self.radio_groups[item['label']] = group
+            
+            for i in range(11):
+                radio = QRadioButton(str(i))
+                group.addButton(radio, i)
+                buttons_layout.addWidget(radio)
+                if i == 5:
+                    radio.setChecked(True)
+            
+            radio_layout.addLayout(buttons_layout)
             
             max_label = QLabel(max_text)
             max_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            slider_layout.addWidget(max_label)
+            radio_layout.addWidget(max_label)
             
-            layout.addLayout(slider_layout)
-            
-            self.sliders[item['label']] = slider
-            
-            value_label = QLabel("50")
-            value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            layout.addWidget(value_label)
-            
-            slider.valueChanged.connect(lambda val, lbl=value_label: lbl.setText(str(val)))
+            layout.addLayout(radio_layout)
             layout.addSpacing(30)
         
         # カウント入力欄1（Task 2: 7のカウント / Task 3: 1のカウント）
@@ -726,7 +731,7 @@ class SurveyView(QWidget):
     
     def get_responses(self) -> Dict[str, int]:
         """アンケート回答を取得"""
-        responses = {label: slider.value() for label, slider in self.sliders.items()}
+        responses = {label: group.checkedId() for label, group in self.radio_groups.items()}
         if self.count_spinbox_1.isVisible():
             responses['count_1'] = self.count_spinbox_1.value()
         if self.count_spinbox_2.isVisible():
