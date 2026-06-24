@@ -826,6 +826,25 @@ class ExperimentApp(QMainWindow):
         self.setWindowTitle("認知的負荷・タイピング動態収集アプリ")
         self.setGeometry(100, 100, config.WINDOW_WIDTH, config.WINDOW_HEIGHT)
         
+        # Windowsのタイトルバーをダークモードに設定
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                hwnd = self.winId()
+                # DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+                ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                    int(hwnd),
+                    20,
+                    ctypes.byref(ctypes.c_int(1)),
+                    ctypes.sizeof(ctypes.c_int)
+                )
+            except Exception:
+                pass
+                
+        # フルスクリーン設定の反映
+        if getattr(config, "FULLSCREEN", False):
+            self.showFullScreen()
+        
         # 【画面遷移の要】QStackedWidgetを利用して複数のViewを重ねて保持し、
         # setCurrentWidget() を呼ぶことで、見せたい画面だけを最前面に切り替えます。
         self.stacked_widget = QStackedWidget()
