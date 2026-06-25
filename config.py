@@ -71,12 +71,12 @@ def get_protocol(pattern: str) -> List[Phase]:
     
     # パターンに応じたタスクの配列
     if pattern == "B":
-        tasks = task2 + [Phase("回復 (Rest 2)", 3 * 60, "cross", True, False, False)] + task3 + [Phase("回復 (Rest 3)", 3 * 60, "cross", True, False, False)] + task1
+        tasks = task2 + [Phase("回復 (Rest 2)", 3 * 60, "cross", True, False, False)] + task3 + [Phase("回復 (Rest 3)", 3 * 60, "cross", True, False, False)] + task1 + [Phase("回復 (Rest 4)", 3 * 60, "cross", True, False, False)]
     elif pattern == "C":
-        tasks = task3 + [Phase("回復 (Rest 2)", 3 * 60, "cross", True, False, False)] + task1 + [Phase("回復 (Rest 3)", 3 * 60, "cross", True, False, False)] + task2
+        tasks = task3 + [Phase("回復 (Rest 2)", 3 * 60, "cross", True, False, False)] + task1 + [Phase("回復 (Rest 3)", 3 * 60, "cross", True, False, False)] + task2 + [Phase("回復 (Rest 4)", 3 * 60, "cross", True, False, False)]
     else:
         # デフォルトは A
-        tasks = task1 + [Phase("回復 (Rest 2)", 3 * 60, "cross", True, False, False)] + task2 + [Phase("回復 (Rest 3)", 3 * 60, "cross", True, False, False)] + task3
+        tasks = task1 + [Phase("回復 (Rest 2)", 3 * 60, "cross", True, False, False)] + task2 + [Phase("回復 (Rest 3)", 3 * 60, "cross", True, False, False)] + task3 + [Phase("回復 (Rest 4)", 3 * 60, "cross", True, False, False)]
 
     # 共通の事後フェーズ
     post_phases = [
