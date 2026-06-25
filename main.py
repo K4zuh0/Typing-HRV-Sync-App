@@ -588,7 +588,7 @@ class SurveyView(QWidget):
         self.setup_ui()
     
     def setup_ui(self):
-        self.setMinimumSize(600, 800)
+        self.setMinimumWidth(600)
         
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -612,6 +612,32 @@ class SurveyView(QWidget):
         font.setBold(True)
         title.setFont(font)
         layout.addWidget(title)
+        
+        layout.addSpacing(20)
+        
+        # カウント入力欄1（Task 2: 7のカウント / Task 3: 1のカウント）
+        self.count_label_1 = QLabel("カウント数を入力してください:")
+        self.count_label_1.hide()
+        layout.addWidget(self.count_label_1)
+        
+        self.count_spinbox_1 = QSpinBox()
+        self.count_spinbox_1.setMinimum(0)
+        self.count_spinbox_1.setMaximum(100)
+        self.count_spinbox_1.setVisible(False)
+        layout.addWidget(self.count_spinbox_1)
+        
+        layout.addSpacing(10)
+        
+        # カウント入力欄2（Task 3: 9のカウント用）
+        self.count_label_2 = QLabel("")
+        self.count_label_2.hide()
+        layout.addWidget(self.count_label_2)
+        
+        self.count_spinbox_2 = QSpinBox()
+        self.count_spinbox_2.setMinimum(0)
+        self.count_spinbox_2.setMaximum(100)
+        self.count_spinbox_2.setVisible(False)
+        layout.addWidget(self.count_spinbox_2)
         
         layout.addSpacing(20)
         
@@ -657,32 +683,7 @@ class SurveyView(QWidget):
             
             layout.addLayout(radio_layout)
             layout.addSpacing(30)
-        
-        # カウント入力欄1（Task 2: 7のカウント / Task 3: 1のカウント）
-        self.count_label_1 = QLabel("カウント数を入力してください:")
-        self.count_label_1.hide()
-        layout.addWidget(self.count_label_1)
-        
-        self.count_spinbox_1 = QSpinBox()
-        self.count_spinbox_1.setMinimum(0)
-        self.count_spinbox_1.setMaximum(100)
-        self.count_spinbox_1.setVisible(False)
-        layout.addWidget(self.count_spinbox_1)
-        
-        layout.addSpacing(10)
-        
-        # カウント入力欄2（Task 3: 9のカウント用）
-        self.count_label_2 = QLabel("")
-        self.count_label_2.hide()
-        layout.addWidget(self.count_label_2)
-        
-        self.count_spinbox_2 = QSpinBox()
-        self.count_spinbox_2.setMinimum(0)
-        self.count_spinbox_2.setMaximum(100)
-        self.count_spinbox_2.setVisible(False)
-        layout.addWidget(self.count_spinbox_2)
-        
-        layout.addSpacing(20)
+            
         layout.addStretch()
         
         # 【修正】次へボタンをスクロールエリアの外（main_layout）に配置し、
