@@ -44,6 +44,7 @@ def get_protocol(pattern: str) -> List[Phase]:
     
     # 共通の事前フェーズ
     pre_phases = [
+        Phase("事前アンケート", 0, "pre_survey", False, False, False),
         Phase("順化中", 3 * 60, "cross", False, False, False),
         Phase("Instruction Vanilla", 0, "instruction", False, False, False),
         Phase("バニラベースライン", 3 * 60, "typing", True, False, False),
@@ -80,6 +81,7 @@ def get_protocol(pattern: str) -> List[Phase]:
 
     # 共通の事後フェーズ
     post_phases = [
+        Phase("事後アンケート", 0, "post_survey", False, False, False),
         Phase("実験完了", 1, "end", False, False, False),
     ]
     
@@ -115,6 +117,8 @@ HEARTRATE_CSV_TEMPLATE = "heartrate_{id}.csv"
 KEYSTROKES_CSV_TEMPLATE = "keystrokes_{id}.csv"
 EVENTS_CSV_TEMPLATE = "events_{id}.csv"
 SURVEYS_CSV_TEMPLATE = "surveys_{id}.csv"
+PRESURVEY_CSV_TEMPLATE = "presurvey_{id}.csv"
+POSTSURVEY_CSV_TEMPLATE = "postsurvey_{id}.csv"
 
 # LSL設定
 LSL_STREAM_NAME = "PolarPPI"

@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QTextEdit, QSlider, QSpinBox, QFileDialog,
     QDialog, QDialogButtonBox, QStackedWidget, QScrollArea,
-    QButtonGroup, QRadioButton
+    QButtonGroup, QRadioButton, QLineEdit, QDoubleSpinBox
 )
 from PySide6.QtCore import Qt, QTimer, Signal, QObject, Slot, QRect, QEvent
 from PySide6.QtGui import QFont, QKeyEvent
@@ -593,13 +593,13 @@ class SurveyView(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
-        main_layout.addWidget(scroll_area)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+        main_layout.addWidget(self.scroll_area)
         
         scroll_widget = QWidget()
-        scroll_area.setWidget(scroll_widget)
+        self.scroll_area.setWidget(scroll_widget)
         
         layout = QVBoxLayout(scroll_widget)
         layout.setSpacing(20)
@@ -740,6 +740,206 @@ class SurveyView(QWidget):
             responses['count_2'] = self.count_spinbox_2.value()
         return responses
 
+    def reset(self):
+        """アンケート画面の入力状態とスクロール位置をリセットする"""
+        # ラジオボタンを初期値（5）に戻す
+        for group in self.radio_groups.values():
+            if group.button(5):
+                group.button(5).setChecked(True)
+        
+        # カウント入力を初期化する
+        if self.count_spinbox_1:
+            self.count_spinbox_1.setValue(0)
+        if self.count_spinbox_2:
+            self.count_spinbox_2.setValue(0)
+            
+        # スクロールバーを一番上に戻す
+        if hasattr(self, 'scroll_area'):
+            self.scroll_area.verticalScrollBar().setValue(0)
+class PreSurveyView(QWidget):
+    """事前アンケート画面"""
+    def __init__(self):
+        super().__init__()
+        self.setup_ui()
+        
+    def setup_ui(self):
+        self.setMinimumWidth(600)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+        main_layout.addWidget(self.scroll_area)
+        
+        scroll_widget = QWidget()
+        self.scroll_area.setWidget(scroll_widget)
+        
+        layout = QVBoxLayout(scroll_widget)
+        layout.setSpacing(20)
+        layout.setContentsMargins(30, 30, 30, 30)
+        
+        title = QLabel("事前アンケート")
+        font = QFont()
+        font.setPointSize(16)
+        font.setBold(True)
+        title.setFont(font)
+        layout.addWidget(title)
+        
+        # 1. 年齢
+        layout.addWidget(QLabel("1. 年齢を入力してください："))
+        self.age_spin = QSpinBox()
+        self.age_spin.setRange(18, 100)
+        self.age_spin.setValue(20)
+        layout.addWidget(self.age_spin)
+        
+        # 2. 性別
+        layout.addWidget(QLabel("2. 性別："))
+        self.gender_group = QButtonGroup(self)
+        gender_layout = QHBoxLayout()
+        for i, text in enumerate(["男", "女", "回答しない"]):
+            rb = QRadioButton(text)
+            self.gender_group.addButton(rb, i)
+            gender_layout.addWidget(rb)
+            if i == 0: rb.setChecked(True)
+        layout.addLayout(gender_layout)
+        
+        # 3. 第一言語
+        layout.addWidget(QLabel("3. 第一言語（母語）："))
+        self.lang_input = QLineEdit("日本語")
+        layout.addWidget(self.lang_input)
+        
+        # 4. 睡眠の十分度
+        layout.addWidget(QLabel("4. 昨晩の睡眠は十分でしたか？（5: 十分 ～ 1: 不十分）"))
+        self.sleep_qual_group = self._create_radio_group(layout, 5, 1, reverse=True)
+        
+        # 5. 睡眠時間
+        layout.addWidget(QLabel("5. 昨晩の睡眠時間（時間）："))
+        self.sleep_time_spin = QDoubleSpinBox()
+        self.sleep_time_spin.setRange(0.0, 24.0)
+        self.sleep_time_spin.setSingleStep(0.5)
+        self.sleep_time_spin.setValue(7.0)
+        layout.addWidget(self.sleep_time_spin)
+        
+        # 6. 現在の体調
+        layout.addWidget(QLabel("6. 現在、体調はどのように感じていますか？（5: 非常に良い ～ 1: 非常に悪い）"))
+        self.cond_group = self._create_radio_group(layout, 5, 1, reverse=True)
+        
+        # 7. 気分・ストレス
+        layout.addWidget(QLabel("7. 現在の気分やストレス状態（10: 非常にストレス ～ 0: 非常にリラックス）"))
+        self.stress_group = self._create_radio_group(layout, 10, 0, reverse=True)
+        
+        # 8. タッチタイピング
+        layout.addWidget(QLabel("8. タッチタイピング（キーボードを見ない入力）はできますか？"))
+        self.typing_group = QButtonGroup(self)
+        typing_layout = QHBoxLayout()
+        for i, text in enumerate(["はい", "いいえ", "ある程度"]):
+            rb = QRadioButton(text)
+            self.typing_group.addButton(rb, i)
+            typing_layout.addWidget(rb)
+            if i == 0: rb.setChecked(True)
+        layout.addLayout(typing_layout)
+        
+        # 9. 普段のキーボード
+        layout.addWidget(QLabel("9. 普段使用しているPCのキーボードはどちらに近いですか？"))
+        self.kb_group = QButtonGroup(self)
+        kb_layout = QHBoxLayout()
+        for i, text in enumerate(["ノートパソコン", "デスクトップ用キーボード"]):
+            rb = QRadioButton(text)
+            self.kb_group.addButton(rb, i)
+            kb_layout.addWidget(rb)
+            if i == 0: rb.setChecked(True)
+        layout.addLayout(kb_layout)
+        
+        # 10. カフェイン
+        layout.addWidget(QLabel("10. 過去4時間以内に、カフェイン（コーヒー、エナジードリンク等）を摂取しましたか？"))
+        self.caf_group = QButtonGroup(self)
+        caf_layout = QHBoxLayout()
+        for i, text in enumerate(["はい", "いいえ"]):
+            rb = QRadioButton(text)
+            self.caf_group.addButton(rb, i)
+            caf_layout.addWidget(rb)
+            if i == 1: rb.setChecked(True)  # Default: いいえ
+        layout.addLayout(caf_layout)
+        
+        layout.addStretch()
+        
+        self.next_button = QPushButton("次へ (実験開始)")
+        font.setPointSize(12)
+        font.setBold(False)
+        self.next_button.setFont(font)
+        self.next_button.setMinimumHeight(40)
+        button_layout = QVBoxLayout()
+        button_layout.setContentsMargins(30, 10, 30, 30)
+        button_layout.addWidget(self.next_button)
+        main_layout.addLayout(button_layout)
+        
+    def _create_radio_group(self, parent_layout, max_val, min_val, reverse=False):
+        group = QButtonGroup(self)
+        layout = QHBoxLayout()
+        r = range(max_val, min_val - 1, -1) if reverse else range(min_val, max_val + 1)
+        for i in r:
+            rb = QRadioButton(str(i))
+            group.addButton(rb, i)
+            layout.addWidget(rb)
+            if i == (max_val + min_val) // 2:
+                rb.setChecked(True)
+        parent_layout.addLayout(layout)
+        return group
+        
+    def get_responses(self) -> Dict:
+        return {
+            "Age": self.age_spin.value(),
+            "Gender": self.gender_group.checkedId(),
+            "Language": self.lang_input.text(),
+            "SleepSufficient": self.sleep_qual_group.checkedId(),
+            "SleepHours": self.sleep_time_spin.value(),
+            "Condition": self.cond_group.checkedId(),
+            "Stress": self.stress_group.checkedId(),
+            "TouchTyping": self.typing_group.checkedId(),
+            "Keyboard": self.kb_group.checkedId(),
+            "Caffeine": self.caf_group.checkedId()
+        }
+
+
+class PostSurveyView(QWidget):
+    """事後アンケート画面"""
+    def __init__(self):
+        super().__init__()
+        self.setup_ui()
+        
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(30, 30, 30, 30)
+        
+        title = QLabel("事後アンケート")
+        font = QFont()
+        font.setPointSize(16)
+        font.setBold(True)
+        title.setFont(font)
+        layout.addWidget(title)
+        
+        layout.addSpacing(20)
+        
+        label = QLabel("実験全体を通して、何か気づいた点、やりにくかった点などがあれば自由にお書きください。（任意）")
+        label.setWordWrap(True)
+        layout.addWidget(label)
+        
+        self.text_edit = QTextEdit()
+        layout.addWidget(self.text_edit)
+        
+        layout.addSpacing(20)
+        
+        self.next_button = QPushButton("次へ (実験終了)")
+        font.setPointSize(12)
+        font.setBold(False)
+        self.next_button.setFont(font)
+        self.next_button.setMinimumHeight(40)
+        layout.addWidget(self.next_button)
+        
+    def get_response(self) -> str:
+        return self.text_edit.toPlainText().replace('\n', ' ').replace('\r', '')
+
 
 class EndView(QWidget):
     """終了画面"""
@@ -760,6 +960,17 @@ class EndView(QWidget):
         label.setFont(font)
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
+        
+        layout.addSpacing(20)
+        
+        debrief_label = QLabel("【重要】\n先ほどの聴覚刺激によるデュアルタスクは、意図的に高い負荷がかかるよう設計されていました。\nあなたの能力をテストしたものではありません。\n\nご協力ありがとうございました。")
+        debrief_label.setWordWrap(True)
+        debrief_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        font = QFont()
+        font.setPointSize(14)
+        font.setBold(False)
+        debrief_label.setFont(font)
+        layout.addWidget(debrief_label)
         
         layout.addSpacing(20)
         
@@ -935,19 +1146,24 @@ class ExperimentApp(QMainWindow):
             self.key_logger.set_active(False)
         
         # ビューの切り替え
-        if self.current_phase.view_type == "cross":
+        if self.current_phase.view_type == "pre_survey":
+            self.stacked_widget.setCurrentWidget(self.presurvey_view)
+        
+        elif self.current_phase.view_type == "cross":
             self.stacked_widget.setCurrentWidget(self.cross_view)
             self.cross_view.update_info(self.current_phase.name, self.current_phase.duration_seconds)
         
         elif self.current_phase.view_type == "instruction":
             title = self.current_phase.name
             desc = ""
-            if "Task 1" in self.current_phase.name:
-                desc = "表示されたテキストを写経してください。"
+            if "Vanilla" in self.current_phase.name:
+                desc = "これは実験の基準となる「リラックス状態」を記録するフェーズです。\n\n表示された文章を、ご自身の最も心地よいペースで、リラックスしてタイピングしてください。\n速く打つ必要は全くありません。肩の力を抜いて、リラックスすることに集中してください。\n\n※段落の間の「空白行（改行の回数）」まで厳密にマネする必要はありません。文章の入力に集中してください。"
+            elif "Task 1" in self.current_phase.name:
+                desc = "表示されたテキストを、【普段仕事やレポートを書くときの自然なペースで、正確に】写経してください。\n\n※段落の間の「空白行（改行の回数）」まで厳密にマネする必要はありません。文章の入力に集中してください。"
             elif "Task 2" in self.current_phase.name:
-                desc = "表示されたテキストを写経してください。\n\nまた、同時に音声が流れます。\n読み上げられた数字の「7」の回数をカウントしてください。"
+                desc = "表示されたテキストを、【普段仕事やレポートを書くときの自然なペースで、正確に】写経してください。\n\nまた、同時に音声が流れます。\n読み上げられた数字の「7」の回数をカウントしてください。\n\n【⚠️ 重要な注意事項】\n・「タイピング」か「カウント」のどちらかを放棄せず、必ず両立に努めてください。\n・途中で数え忘れても諦めず、途中からでもカウントを再開してください。\n・事後アンケートの回数入力では「たぶんこれくらいかな」と適当に予測して入力せず、自分が『確実に数えられた回数』だけを正直に入力してください。\n\n※段落の間の「空白行（改行の回数）」まで厳密にマネする必要はありません。文章の入力に集中してください。"
             elif "Task 3" in self.current_phase.name:
-                desc = "表示されたテキストを写経してください。\n\nまた、同時に音声が流れます。\n読み上げられた数字の「1」の回数と「9」の回数をそれぞれ別々にカウントしてください。"
+                desc = "表示されたテキストを、【普段仕事やレポートを書くときの自然なペースで、正確に】写経してください。\n\nまた、同時に音声が流れます。\n読み上げられた数字の「1」の回数と「9」の回数をそれぞれ別々にカウントしてください。\n\n【⚠️ 重要な注意事項】\n・「タイピング」か「カウント」のどちらかを放棄せず、必ず両立に努めてください。\n・途中で数え忘れても諦めず、途中からでもカウントを再開してください。\n・事後アンケートの回数入力では「たぶんこれくらいかな」と適当に予測して入力せず、自分が『確実に数えられた回数』だけを正直に入力してください。\n\n※段落の間の「空白行（改行の回数）」まで厳密にマネする必要はありません。文章の入力に集中してください。"
             
             self.instruction_view.set_instruction(title, desc)
             self.stacked_widget.setCurrentWidget(self.instruction_view)
@@ -995,6 +1211,7 @@ class ExperimentApp(QMainWindow):
         
         elif self.current_phase.view_type == "survey":
             # アンケート画面
+            self.survey_view.reset()  # 前回の入力内容とスクロールをリセット
             # The survey is about the previous phase (the task)
             previous_phase = self.protocol[self.phase_index - 1]
 
@@ -1016,6 +1233,9 @@ class ExperimentApp(QMainWindow):
             self.survey_view.next_button.setEnabled(True)
             self.stacked_widget.setCurrentWidget(self.survey_view)
         
+        elif self.current_phase.view_type == "post_survey":
+            self.stacked_widget.setCurrentWidget(self.postsurvey_view)
+            
         elif self.current_phase.view_type == "end":
             self.stacked_widget.setCurrentWidget(self.end_view)
     
@@ -1142,6 +1362,24 @@ class ExperimentApp(QMainWindow):
                     resp.get('フラストレーション', ''),
                 ])
         print(f"✓ {survey_file} を保存しました")
+        
+        # 5. 実験前アンケートデータ
+        if self.presurvey_response:
+            presurvey_file = os.path.join(subject_dir, config.PRESURVEY_CSV_TEMPLATE.format(id=id_str))
+            with open(presurvey_file, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                headers = list(self.presurvey_response.keys())
+                writer.writerow(headers)
+                writer.writerow([self.presurvey_response[k] for k in headers])
+            print(f"✓ {presurvey_file} を保存しました")
+            
+        # 6. 実験後アンケート（自由記述）データ
+        if self.postsurvey_response:
+            postsurvey_file = os.path.join(subject_dir, config.POSTSURVEY_CSV_TEMPLATE.format(id=id_str))
+            with open(postsurvey_file, 'w', newline='', encoding='utf-8') as f:
+                f.write("自由記述（気づいた点・やりにくかった点等）:\n\n")
+                f.write(self.postsurvey_response)
+            print(f"✓ {postsurvey_file} を保存しました")
         
         print("\n✓ すべてのデータを保存しました")
 
