@@ -98,7 +98,7 @@ KEY_EVENT_POLL_INTERVAL = 10  # キーイベント取得間隔
 # 注: 音声ファイルは既に1.5秒間隔で0~9の数字をランダムに流す仕様
 AUDIO_DIR = "audio"
 AUDIO_FILE_LEVEL2 = "audio_level2.wav"  # Task 2 用（7の回数をカウント）
-AUDIO_FILE_LEVEL3 = "audio_level3.wav"  # Task 3 用（1と9の合計をカウント）
+AUDIO_FILE_LEVEL3 = "audio_level3.wav"  # Task 3 用（1と9の回数をそれぞれ別にカウント）
 
 # テキストファイル設定
 TEXT_DIR = "texts"
