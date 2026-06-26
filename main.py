@@ -577,6 +577,19 @@ class TypingView(QWidget):
         return self.input_text.toPlainText()
 
 
+# ================== カスタム UI コンポーネント ==================
+
+class WheellessSpinBox(QSpinBox):
+    """マウスホイールでの値変更を無効化した QSpinBox"""
+    def wheelEvent(self, event):
+        event.ignore()
+
+class WheellessDoubleSpinBox(QDoubleSpinBox):
+    """マウスホイールでの値変更を無効化した QDoubleSpinBox"""
+    def wheelEvent(self, event):
+        event.ignore()
+
+
 class SurveyView(QWidget):
     """アンケート画面: NASA-TLX + カウント入力（オプション）"""
     
@@ -620,7 +633,7 @@ class SurveyView(QWidget):
         self.count_label_1.hide()
         layout.addWidget(self.count_label_1)
         
-        self.count_spinbox_1 = QSpinBox()
+        self.count_spinbox_1 = WheellessSpinBox()
         self.count_spinbox_1.setMinimum(0)
         self.count_spinbox_1.setMaximum(100)
         self.count_spinbox_1.setVisible(False)
@@ -633,7 +646,7 @@ class SurveyView(QWidget):
         self.count_label_2.hide()
         layout.addWidget(self.count_label_2)
         
-        self.count_spinbox_2 = QSpinBox()
+        self.count_spinbox_2 = WheellessSpinBox()
         self.count_spinbox_2.setMinimum(0)
         self.count_spinbox_2.setMaximum(100)
         self.count_spinbox_2.setVisible(False)
@@ -776,116 +789,157 @@ class PreSurveyView(QWidget):
         self.scroll_area.setWidget(scroll_widget)
         
         layout = QVBoxLayout(scroll_widget)
-        layout.setSpacing(20)
-        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(30)  # 広めの余白
+        layout.setContentsMargins(40, 40, 40, 40)
         
-        title = QLabel("事前アンケート")
+        title = QLabel("実験前アンケート")
         font = QFont()
-        font.setPointSize(16)
+        font.setPointSize(18)
         font.setBold(True)
         title.setFont(font)
         layout.addWidget(title)
         
+        instruction = QLabel("実験を始める前に、現在の状態について教えてください。\nすべての項目に回答してから「次へ」を押してください。")
+        font.setPointSize(12)
+        font.setBold(False)
+        instruction.setFont(font)
+        layout.addWidget(instruction)
+        layout.addSpacing(20)
+        
+        # 質問のスタイル用フォント
+        q_font = QFont()
+        q_font.setPointSize(12)
+        q_font.setBold(True)
+        
         # 1. 年齢
-        layout.addWidget(QLabel("1. 年齢を入力してください："))
-        self.age_spin = QSpinBox()
+        self.age_spin = WheellessSpinBox()
         self.age_spin.setRange(18, 100)
         self.age_spin.setValue(20)
-        layout.addWidget(self.age_spin)
+        self.age_spin.setMinimumHeight(35)
+        self.age_spin.setFont(font)
+        layout.addWidget(self._create_question_widget("1. 年齢を入力してください：", self.age_spin, q_font))
         
         # 2. 性別
-        layout.addWidget(QLabel("2. 性別："))
         self.gender_group = QButtonGroup(self)
-        gender_layout = QHBoxLayout()
-        for i, text in enumerate(["男", "女", "回答しない"]):
-            rb = QRadioButton(text)
-            self.gender_group.addButton(rb, i)
-            gender_layout.addWidget(rb)
-            if i == 0: rb.setChecked(True)
-        layout.addLayout(gender_layout)
+        gender_w = self._create_radio_widget(self.gender_group, ["男", "女", "回答しない"], default_idx=0, font=font)
+        layout.addWidget(self._create_question_widget("2. 性別を選択してください：", gender_w, q_font))
         
         # 3. 第一言語
-        layout.addWidget(QLabel("3. 第一言語（母語）："))
         self.lang_input = QLineEdit("日本語")
-        layout.addWidget(self.lang_input)
+        self.lang_input.setMinimumHeight(35)
+        self.lang_input.setFont(font)
+        layout.addWidget(self._create_question_widget("3. 第一言語（母語）は何ですか？：", self.lang_input, q_font))
         
         # 4. 睡眠の十分度
-        layout.addWidget(QLabel("4. 昨晩の睡眠は十分でしたか？（5: 十分 ～ 1: 不十分）"))
-        self.sleep_qual_group = self._create_radio_group(layout, 5, 1, reverse=True)
+        self.sleep_qual_group = QButtonGroup(self)
+        sleep_qual_w = self._create_scale_widget(self.sleep_qual_group, 5, 1, reverse=True, min_label="不十分", max_label="十分", font=font)
+        layout.addWidget(self._create_question_widget("4. 昨晩の睡眠は十分でしたか？（5: 十分 ～ 1: 不十分）：", sleep_qual_w, q_font))
         
         # 5. 睡眠時間
-        layout.addWidget(QLabel("5. 昨晩の睡眠時間（時間）："))
-        self.sleep_time_spin = QDoubleSpinBox()
+        self.sleep_time_spin = WheellessDoubleSpinBox()
         self.sleep_time_spin.setRange(0.0, 24.0)
         self.sleep_time_spin.setSingleStep(0.5)
+        self.sleep_time_spin.setDecimals(1)
         self.sleep_time_spin.setValue(7.0)
-        layout.addWidget(self.sleep_time_spin)
+        self.sleep_time_spin.setSuffix(" 時間")
+        self.sleep_time_spin.setMinimumHeight(35)
+        self.sleep_time_spin.setFont(font)
+        layout.addWidget(self._create_question_widget("5. 昨晩の睡眠時間を教えてください：", self.sleep_time_spin, q_font))
         
         # 6. 現在の体調
-        layout.addWidget(QLabel("6. 現在、体調はどのように感じていますか？（5: 非常に良い ～ 1: 非常に悪い）"))
-        self.cond_group = self._create_radio_group(layout, 5, 1, reverse=True)
+        self.cond_group = QButtonGroup(self)
+        cond_w = self._create_scale_widget(self.cond_group, 5, 1, reverse=True, min_label="非常に悪い", max_label="非常に良い", font=font)
+        layout.addWidget(self._create_question_widget("6. 現在、体調はどのように感じていますか？（5: 非常に良い ～ 1: 非常に悪い）：", cond_w, q_font))
         
         # 7. 気分・ストレス
-        layout.addWidget(QLabel("7. 現在の気分やストレス状態（10: 非常にストレス ～ 0: 非常にリラックス）"))
-        self.stress_group = self._create_radio_group(layout, 10, 0, reverse=True)
+        self.stress_group = QButtonGroup(self)
+        stress_w = self._create_scale_widget(self.stress_group, 10, 0, reverse=True, min_label="非常にリラックス", max_label="非常にストレス", font=font)
+        layout.addWidget(self._create_question_widget("7. 現在の気分やストレス状態はどれくらいですか？（10: 非常にストレス ～ 0: 非常にリラックス）：", stress_w, q_font))
         
         # 8. タッチタイピング
-        layout.addWidget(QLabel("8. タッチタイピング（キーボードを見ない入力）はできますか？"))
         self.typing_group = QButtonGroup(self)
-        typing_layout = QHBoxLayout()
-        for i, text in enumerate(["はい", "いいえ", "ある程度"]):
-            rb = QRadioButton(text)
-            self.typing_group.addButton(rb, i)
-            typing_layout.addWidget(rb)
-            if i == 0: rb.setChecked(True)
-        layout.addLayout(typing_layout)
+        typing_w = self._create_radio_widget(self.typing_group, ["はい", "いいえ", "ある程度"], default_idx=0, font=font)
+        layout.addWidget(self._create_question_widget("8. タッチタイピング（キーボードを見ない入力）はできますか？：", typing_w, q_font))
         
         # 9. 普段のキーボード
-        layout.addWidget(QLabel("9. 普段使用しているPCのキーボードはどちらに近いですか？"))
         self.kb_group = QButtonGroup(self)
-        kb_layout = QHBoxLayout()
-        for i, text in enumerate(["ノートパソコン", "デスクトップ用キーボード"]):
-            rb = QRadioButton(text)
-            self.kb_group.addButton(rb, i)
-            kb_layout.addWidget(rb)
-            if i == 0: rb.setChecked(True)
-        layout.addLayout(kb_layout)
+        kb_w = self._create_radio_widget(self.kb_group, ["ノートパソコン", "デスクトップ用キーボード"], default_idx=0, font=font)
+        layout.addWidget(self._create_question_widget("9. 普段使用しているPCのキーボードはどちらに近いですか？：", kb_w, q_font))
         
         # 10. カフェイン
-        layout.addWidget(QLabel("10. 過去4時間以内に、カフェイン（コーヒー、エナジードリンク等）を摂取しましたか？"))
         self.caf_group = QButtonGroup(self)
-        caf_layout = QHBoxLayout()
-        for i, text in enumerate(["はい", "いいえ"]):
-            rb = QRadioButton(text)
-            self.caf_group.addButton(rb, i)
-            caf_layout.addWidget(rb)
-            if i == 1: rb.setChecked(True)  # Default: いいえ
-        layout.addLayout(caf_layout)
+        caf_w = self._create_radio_widget(self.caf_group, ["はい", "いいえ"], default_idx=1, font=font)
+        layout.addWidget(self._create_question_widget("10. 過去4時間以内に、カフェイン（コーヒーやエナジードリンク等）を摂取しましたか？：", caf_w, q_font))
         
         layout.addStretch()
         
         self.next_button = QPushButton("次へ (実験開始)")
-        font.setPointSize(12)
-        font.setBold(False)
+        font.setPointSize(14)
+        font.setBold(True)
         self.next_button.setFont(font)
-        self.next_button.setMinimumHeight(40)
+        self.next_button.setMinimumHeight(50)
+        self.next_button.setStyleSheet("QPushButton { background-color: #0078D7; color: white; border-radius: 5px; } QPushButton:hover { background-color: #005A9E; }")
+        
         button_layout = QVBoxLayout()
-        button_layout.setContentsMargins(30, 10, 30, 30)
+        button_layout.setContentsMargins(40, 10, 40, 30)
         button_layout.addWidget(self.next_button)
         main_layout.addLayout(button_layout)
         
-    def _create_radio_group(self, parent_layout, max_val, min_val, reverse=False):
-        group = QButtonGroup(self)
-        layout = QHBoxLayout()
+    def _create_question_widget(self, question_text: str, content_widget: QWidget, font: QFont) -> QWidget:
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(10)
+        
+        label = QLabel(question_text)
+        label.setFont(font)
+        label.setWordWrap(True)
+        layout.addWidget(label)
+        layout.addWidget(content_widget)
+        
+        return container
+        
+    def _create_radio_widget(self, group: QButtonGroup, options: List[str], default_idx: int, font: QFont) -> QWidget:
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(10, 0, 0, 0)
+        for i, text in enumerate(options):
+            rb = QRadioButton(text)
+            rb.setFont(font)
+            group.addButton(rb, i)
+            layout.addWidget(rb)
+            if i == default_idx:
+                rb.setChecked(True)
+        layout.addStretch()
+        return container
+        
+    def _create_scale_widget(self, group: QButtonGroup, max_val: int, min_val: int, reverse: bool, min_label: str, max_label: str, font: QFont) -> QWidget:
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(10, 0, 0, 0)
+        
+        # 逆順なら左にmax_label、順方向なら左にmin_label
+        left_label = max_label if reverse else min_label
+        right_label = min_label if reverse else max_label
+        
+        left_l = QLabel(left_label)
+        left_l.setFont(font)
+        layout.addWidget(left_l)
+        
         r = range(max_val, min_val - 1, -1) if reverse else range(min_val, max_val + 1)
         for i in r:
             rb = QRadioButton(str(i))
+            rb.setFont(font)
             group.addButton(rb, i)
             layout.addWidget(rb)
             if i == (max_val + min_val) // 2:
                 rb.setChecked(True)
-        parent_layout.addLayout(layout)
-        return group
+                
+        right_l = QLabel(right_label)
+        right_l.setFont(font)
+        layout.addWidget(right_l)
+        layout.addStretch()
+        return container
         
     def get_responses(self) -> Dict:
         return {
@@ -1018,13 +1072,17 @@ class ExperimentApp(QMainWindow):
         self.audio_player: Optional[AudioPlayer] = None
         
         # アンケート結果
+        self.presurvey_response: Dict = {}
         self.survey_responses: List[Dict] = []
+        self.postsurvey_response: str = ""
         
         # UI コンポーネント
+        self.presurvey_view = PreSurveyView()
         self.cross_view = CrossView()
         self.instruction_view = InstructionView()
         self.typing_view = TypingView()
         self.survey_view = SurveyView()
+        self.postsurvey_view = PostSurveyView()
         self.end_view = EndView()
         
         # タイマー
@@ -1060,10 +1118,12 @@ class ExperimentApp(QMainWindow):
         # 【画面遷移の要】QStackedWidgetを利用して複数のViewを重ねて保持し、
         # setCurrentWidget() を呼ぶことで、見せたい画面だけを最前面に切り替えます。
         self.stacked_widget = QStackedWidget()
+        self.stacked_widget.addWidget(self.presurvey_view)
         self.stacked_widget.addWidget(self.cross_view)
         self.stacked_widget.addWidget(self.instruction_view)
         self.stacked_widget.addWidget(self.typing_view)
         self.stacked_widget.addWidget(self.survey_view)
+        self.stacked_widget.addWidget(self.postsurvey_view)
         self.stacked_widget.addWidget(self.end_view)
         self.setCentralWidget(self.stacked_widget)
         
@@ -1080,6 +1140,8 @@ class ExperimentApp(QMainWindow):
         
         # アンケート画面の「次へ」ボタンのシグナルは、多重送信（2回進んでしまう等）のバグを防ぐため、
         # 画面遷移のたびに毎回つなぎ直すのではなく、起動時にここで1回だけ接続して永続化しておきます。
+        self.presurvey_view.next_button.clicked.connect(self.next_phase)
+        self.postsurvey_view.next_button.clicked.connect(self.next_phase)
         self.survey_view.next_button.clicked.connect(self.on_survey_submit)
     
     def eventFilter(self, obj, event):
@@ -1256,7 +1318,7 @@ class ExperimentApp(QMainWindow):
             self.cross_view.update_info(self.current_phase.name, max(0, remaining))
         
         # 時間終了判定（アンケートや説明画面などのユーザー操作待ち画面は除く）
-        if elapsed >= self.current_phase.duration_seconds and self.current_phase.view_type not in ["survey", "instruction"]:
+        if elapsed >= self.current_phase.duration_seconds and self.current_phase.view_type not in ["survey", "instruction", "pre_survey", "post_survey", "end"]:
             self.event_logger.log_event(f"終了: {self.current_phase.name}")
             
             # Typing View の場合はタイムアップと同時に新たな入力をブロックします
@@ -1264,6 +1326,26 @@ class ExperimentApp(QMainWindow):
                 self.typing_view.block_input()
                 self.key_logger.set_active(False)
             
+            self.goto_phase(self.phase_index + 1)
+            
+    def next_phase(self):
+        """次のフェーズに進む"""
+        try:
+            if self.current_phase and self.current_phase.view_type == "survey":
+                self.on_survey_submit()
+                return
+                
+            if self.current_phase and self.current_phase.view_type == "pre_survey":
+                self.presurvey_response = self.presurvey_view.get_responses()
+                
+            if self.current_phase and self.current_phase.view_type == "post_survey":
+                self.postsurvey_response = self.postsurvey_view.get_response()
+                
+            self.goto_phase(self.phase_index + 1)
+        except Exception as e:
+            import traceback
+            print(f"[Error in next_phase] {e}")
+            traceback.print_exc()
             self.goto_phase(self.phase_index + 1)
     
     def on_survey_submit(self):
