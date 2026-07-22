@@ -133,10 +133,16 @@ class LSLLogger(threading.Thread):
     def __init__(self):
         super().__init__(daemon=True)
         self.running = False
-        self.data: List[Tuple[float, int]] = []  # (timestamp, ppi)
+        self.data: List[Tuple[float, int, str]] = []  # (timestamp, ppi, phase_name)
+        self.current_phase_name = ""
         self.inlet: Optional[StreamInlet] = None
         # UIスレッドからのデータ取得と、このスレッドでのデータ追加が競合しないようにロックを使用します
         self._lock = threading.Lock()
+        
+    def set_current_phase(self, phase_name: str):
+        """現在のフェーズ名を設定"""
+        with self._lock:
+            self.current_phase_name = phase_name
     
     def connect(self) -> bool:
         """
@@ -182,7 +188,7 @@ class LSLLogger(threading.Thread):
                     timestamp = local_clock() 
                     ppi_value = int(sample[0])
                     with self._lock:
-                        self.data.append((timestamp, ppi_value))
+                        self.data.append((timestamp, ppi_value, self.current_phase_name))
             except Exception as e:
                 print(f"[LSLLogger] 受信エラー: {e}")
     
@@ -191,7 +197,7 @@ class LSLLogger(threading.Thread):
         self.running = False
         self.join(timeout=2)
     
-    def get_data(self) -> List[Tuple[float, int]]:
+    def get_data(self) -> List[Tuple[float, int, str]]:
         """現在までに蓄積されたデータを取得（スレッドセーフ）"""
         with self._lock:
             return list(self.data)
@@ -976,6 +982,9 @@ class PostSurveyView(QWidget):
         layout.addSpacing(20)
         
         label = QLabel("実験全体を通して、何か気づいた点、やりにくかった点などがあれば自由にお書きください。（任意）")
+        l_font = QFont()
+        l_font.setPointSize(12)
+        label.setFont(l_font)
         label.setWordWrap(True)
         layout.addWidget(label)
         
@@ -1199,7 +1208,8 @@ class ExperimentApp(QMainWindow):
         
         # イベントログに記録
         self.event_logger.log_event(f"開始: {self.current_phase.name}")
-        
+        self.key_logger.set_current_phase(self.current_phase.name)
+        self.lsl_logger.set_current_phase(self.current_phase.name)
         # 【要件3: スレッドセーフなデータ蓄積】
         # タイピングタスク中のみ、グローバルキーロガーでの記録を有効化します
         if self.current_phase.view_type == "typing":
@@ -1229,7 +1239,7 @@ class ExperimentApp(QMainWindow):
             
             self.instruction_view.set_instruction(title, desc)
             self.stacked_widget.setCurrentWidget(self.instruction_view)
-            self.instruction_view.setFocus()
+            QTimer.singleShot(0, self.instruction_view.setFocus)
         
         elif self.current_phase.view_type == "typing":
             self.typing_view.clear()
@@ -1250,11 +1260,11 @@ class ExperimentApp(QMainWindow):
             self.typing_view.load_text(text_path)
             
             self.typing_view.allow_input()
+            self.stacked_widget.setCurrentWidget(self.typing_view)
             
             # 【要件3: 監視の継続とフォーカス】タスク開始時に確実に入力用テキストボックスにフォーカスを強制します。
-            # 以前は TypingView 自体にフォーカスを当てていたため、テキストボックスからイベントが漏れることがありました。
-            self.typing_view.input_text.setFocus()
-            self.stacked_widget.setCurrentWidget(self.typing_view)
+            # 画面の表示切り替え（setCurrentWidget）が完了した直後にフォーカスを当てるため QTimer を使います。
+            QTimer.singleShot(0, self.typing_view.input_text.setFocus)
             
             # 【要件4: データの揮発防止】全タスクを通して1つのリストに蓄積し続けるため、クリア処理を削除します。
             
@@ -1318,7 +1328,7 @@ class ExperimentApp(QMainWindow):
             self.cross_view.update_info(self.current_phase.name, max(0, remaining))
         
         # 時間終了判定（アンケートや説明画面などのユーザー操作待ち画面は除く）
-        if elapsed >= self.current_phase.duration_seconds and self.current_phase.view_type not in ["survey", "instruction", "pre_survey", "post_survey", "end"]:
+        if elapsed >= self.current_phase.duration_seconds and self.current_phase.view_type not in ["survey", "instruction", "pre_survey", "post_survey"]:
             self.event_logger.log_event(f"終了: {self.current_phase.name}")
             
             # Typing View の場合はタイムアップと同時に新たな入力をブロックします
@@ -1403,9 +1413,9 @@ class ExperimentApp(QMainWindow):
         hr_file = os.path.join(subject_dir, config.HEARTRATE_CSV_TEMPLATE.format(id=id_str))
         with open(hr_file, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow(['Timestamp', 'PPI'])
-            for ts, ppi in self.lsl_logger.get_data():
-                writer.writerow([ts, ppi])
+            writer.writerow(['Timestamp', 'PPI', 'Current_Phase'])
+            for ts, ppi, phase_name in self.lsl_logger.get_data():
+                writer.writerow([ts, ppi, phase_name])
         print(f"✓ {hr_file} を保存しました")
         
         # 2. キーストロークデータ
