@@ -1228,8 +1228,10 @@ class ExperimentApp(QMainWindow):
         elif self.current_phase.view_type == "instruction":
             title = self.current_phase.name
             desc = ""
-            if "Vanilla" in self.current_phase.name:
-                desc = "これは実験の基準となる「リラックス状態」を記録するフェーズです。\n\n表示された文章を、ご自身の最も心地よいペースで、リラックスしてタイピングしてください。\n速く打つ必要は全くありません。肩の力を抜いて、リラックスすることに集中してください。\n\n※段落の間の「空白行（改行の回数）」まで厳密にマネする必要はありません。文章の入力に集中してください。"
+            if "Practice" in self.current_phase.name or "練習" in self.current_phase.name:
+                desc = "まずは、キーボードの押し心地や画面の文字サイズに慣れるための準備時間です。\n\n画面に表示される文章をいくつか打ってみて、打ちやすい姿勢や椅子の位置などを調整してください。"
+            elif "Vanilla" in self.current_phase.name:
+                desc = "準備が整いましたら、タイピングを続けていただきます。\n\nここからは、【普段仕事やレポートを書くときのような『いつも通りの自然なペース』で】、気楽に文章を入力してください。速く打つ必要は全くありません。\n\n※段落の間の「空白行（改行の回数）」まで厳密にマネする必要はありません。文章の入力に集中してください。"
             elif "Task 1" in self.current_phase.name:
                 desc = "表示されたテキストを、【普段仕事やレポートを書くときの自然なペースで、正確に】写経してください。\n\n※段落の間の「空白行（改行の回数）」まで厳密にマネする必要はありません。文章の入力に集中してください。"
             elif "Task 2" in self.current_phase.name:
@@ -1245,16 +1247,12 @@ class ExperimentApp(QMainWindow):
             self.typing_view.clear()
             
             # Task に応じたテキストファイルを読み込み
-            if "Vanilla" in self.current_phase.name or "バニラ" in self.current_phase.name:
+            if getattr(self.current_phase, 'text_key', None):
+                text_file = config.TEXT_FILES.get(self.current_phase.text_key, "TaskA.txt")
+            elif "Vanilla" in self.current_phase.name or "バニラ" in self.current_phase.name:
                 text_file = config.TEXT_FILES.get("vanilla", "Vanilla.txt")
-            elif "Task 1" in self.current_phase.name:
-                text_file = config.TEXT_FILES["task1"]
-            elif "Task 2" in self.current_phase.name:
-                text_file = config.TEXT_FILES["task2"]
-            elif "Task 3" in self.current_phase.name:
-                text_file = config.TEXT_FILES["task3"]
             else:
-                text_file = "Task1.txt"
+                text_file = "Vanilla.txt"
             
             text_path = os.path.join(config.TEXT_DIR, text_file)
             self.typing_view.load_text(text_path)
@@ -1263,8 +1261,13 @@ class ExperimentApp(QMainWindow):
             self.stacked_widget.setCurrentWidget(self.typing_view)
             
             # 【要件3: 監視の継続とフォーカス】タスク開始時に確実に入力用テキストボックスにフォーカスを強制します。
-            # 画面の表示切り替え（setCurrentWidget）が完了した直後にフォーカスを当てるため QTimer を使います。
-            QTimer.singleShot(0, self.typing_view.input_text.setFocus)
+            # 画面の表示切り替え直後はOS側のフォーカス管理が追いつかず、入力が漏れる現象を防ぐため、
+            # 少し遅延させてからウィンドウ全体を強制アクティブ化し、テキストボックスにフォーカスを奪います。
+            def apply_focus():
+                self.activateWindow()
+                self.typing_view.input_text.setFocus(Qt.FocusReason.OtherFocusReason)
+                
+            QTimer.singleShot(100, apply_focus)
             
             # 【要件4: データの揮発防止】全タスクを通して1つのリストに蓄積し続けるため、クリア処理を削除します。
             

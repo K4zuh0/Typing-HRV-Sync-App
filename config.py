@@ -14,79 +14,87 @@ from typing import List, Literal
 class Phase:
     """
     実験フェーズの定義
-    各タスクや休憩時間の1単位（フェーズ）を表現するデータクラスです。
     """
-    name: str                          # フェーズ名（画面下部に表示されたり、ログのマーカーとして記録されます）
-    duration_seconds: int              # 実行時間（秒）。0の場合はユーザーのアクションで進むまで待機します。
-    view_type: Literal["cross", "typing", "survey", "end", "instruction"]  # このフェーズで表示する画面（View）の種類
-    log_data: bool                     # この期間のLSLデータ（心拍等）を有効なデータとして扱うかのフラグ
-    has_audio: bool = False            # 音声（数字の読み上げ等）をバックグラウンドで再生するかのフラグ
-    requires_count_input: bool = False # アンケート画面において、音声タスクのカウント結果を入力させるかのフラグ
-    
-    @property
-    def display_name(self) -> str:
-        """画面下部に表示する用のフェーズ名（必要に応じてここで整形できます）"""
-        return self.name
+    name: str
+    duration_seconds: int
+    view_type: Literal["cross", "typing", "survey", "end", "instruction"]
+    log_data: bool
+    has_audio: bool = False
+    requires_count_input: bool = False
+    text_key: str = None
 
-
-# 【目的】ラテン方格法に基づいたプロトコル（フェーズの進行順序）を生成する
-# 【役割（Why）】
-# タスクの順序効果（疲労や慣れ）を相殺するため。
-# パターンA, B, C の3種類をボタンで明示的に選択し、
-# どの被験者がどの順序で実施したかを実験者が正確に把握できるようにしています。
 def get_protocol(pattern: str) -> List[Phase]:
     """
-    pattern: "A", "B", "C" のいずれか
-    A: Task1 -> Task2 -> Task3
-    B: Task2 -> Task3 -> Task1
-    C: Task3 -> Task1 -> Task2
+    pattern: "1" ~ "9" のいずれか
+    ラテン方格法に基づき、タスク(Low/Med/High)とテキスト(A/B/C)を組み合わせて返す。
     """
     
     # 共通の事前フェーズ
     pre_phases = [
         Phase("事前アンケート", 0, "pre_survey", False, False, False),
-        Phase("順化中", 3 * 60, "cross", False, False, False),
+        Phase("Instruction Practice", 0, "instruction", False, False, False),
+        Phase("タイピング練習", 60, "typing", False, False, False, text_key="practice"),
         Phase("Instruction Vanilla", 0, "instruction", False, False, False),
         Phase("バニラベースライン", 3 * 60, "typing", True, False, False),
         Phase("回復 (Rest 1)", 3 * 60, "cross", True, False, False),
     ]
     
-    # 各タスクの定義
-    task1 = [
-        Phase("Instruction Task 1", 0, "instruction", False, False, False),
-        Phase("Task 1: Low (写経)", 3 * 60, "typing", True, False, False),
-        Phase("Survey after Task 1", 1, "survey", False, False, False),
-    ]
+    def create_task(task_type, text_key, order):
+        if task_type == "Low":
+            task_id = "Task 1"
+            has_audio = False
+            requires_count = False
+        elif task_type == "Medium":
+            task_id = "Task 2"
+            has_audio = True
+            requires_count = True
+        else: # High
+            task_id = "Task 3"
+            has_audio = True
+            requires_count = True
+            
+        return [
+            Phase(f"Instruction {task_id}", 0, "instruction", False, False, False),
+            Phase(f"{task_id}: {task_type} (Text {text_key})", 3 * 60, "typing", True, has_audio, False, text_key=text_key),
+            Phase(f"Survey after {task_id}", 1, "survey", False, False, requires_count),
+        ]
+        
+    patterns_map = {
+        "1": [("Low", "A"), ("Medium", "B"), ("High", "C")],
+        "2": [("Medium", "B"), ("High", "C"), ("Low", "A")],
+        "3": [("High", "C"), ("Low", "A"), ("Medium", "B")],
+        "4": [("Low", "B"), ("Medium", "C"), ("High", "A")],
+        "5": [("Medium", "C"), ("High", "A"), ("Low", "B")],
+        "6": [("High", "A"), ("Low", "B"), ("Medium", "C")],
+        "7": [("Low", "C"), ("Medium", "A"), ("High", "B")],
+        "8": [("Medium", "A"), ("High", "B"), ("Low", "C")],
+        "9": [("High", "B"), ("Low", "C"), ("Medium", "A")]
+    }
     
-    task2 = [
-        Phase("Instruction Task 2", 0, "instruction", False, False, False),
-        Phase("Task 2: Medium (写経+音声)", 3 * 60, "typing", True, True, False),
-        Phase("Survey after Task 2", 1, "survey", False, False, True),
-    ]
+    if pattern not in patterns_map:
+        pattern = "1"
+        
+    tasks = []
+    config_list = patterns_map[pattern]
     
-    task3 = [
-        Phase("Instruction Task 3", 0, "instruction", False, False, False),
-        Phase("Task 3: High (写経+音声)", 3 * 60, "typing", True, True, False),
-        Phase("Survey after Task 3", 1, "survey", False, False, True),
-    ]
+    tasks.extend(create_task(config_list[0][0], config_list[0][1], 1))
+    tasks.append(Phase("回復 (Rest 2)", 3 * 60, "cross", True, False, False))
     
-    # パターンに応じたタスクの配列
-    if pattern == "B":
-        tasks = task2 + [Phase("回復 (Rest 2)", 3 * 60, "cross", True, False, False)] + task3 + [Phase("回復 (Rest 3)", 3 * 60, "cross", True, False, False)] + task1 + [Phase("回復 (Rest 4)", 3 * 60, "cross", True, False, False)]
-    elif pattern == "C":
-        tasks = task3 + [Phase("回復 (Rest 2)", 3 * 60, "cross", True, False, False)] + task1 + [Phase("回復 (Rest 3)", 3 * 60, "cross", True, False, False)] + task2 + [Phase("回復 (Rest 4)", 3 * 60, "cross", True, False, False)]
-    else:
-        # デフォルトは A
-        tasks = task1 + [Phase("回復 (Rest 2)", 3 * 60, "cross", True, False, False)] + task2 + [Phase("回復 (Rest 3)", 3 * 60, "cross", True, False, False)] + task3 + [Phase("回復 (Rest 4)", 3 * 60, "cross", True, False, False)]
-
+    tasks.extend(create_task(config_list[1][0], config_list[1][1], 2))
+    tasks.append(Phase("回復 (Rest 3)", 3 * 60, "cross", True, False, False))
+    
+    tasks.extend(create_task(config_list[2][0], config_list[2][1], 3))
+    tasks.append(Phase("回復 (Rest 4)", 3 * 60, "cross", True, False, False))
+    
     # 共通の事後フェーズ
     post_phases = [
+        Phase("Instruction Post-Vanilla", 0, "instruction", False, False, False),
+        Phase("ポストバニラベースライン", 3 * 60, "typing", True, False, False),
         Phase("事後アンケート", 0, "post_survey", False, False, False),
         Phase("実験完了", 1, "end", False, False, False),
     ]
     
     return pre_phases + tasks + post_phases
-
 
 # UI設定
 WINDOW_WIDTH = 1400
@@ -106,9 +114,10 @@ AUDIO_FILE_LEVEL3 = "audio_level3.wav"  # Task 3 用（1と9の回数をそれ�
 TEXT_DIR = "texts"
 TEXT_FILES = {
     "vanilla": "Vanilla.txt",
-    "task1": "Task1.txt",
-    "task2": "Task2.txt",
-    "task3": "Task3.txt",
+    "practice": "Practice.txt",
+    "A": "TaskA.txt",
+    "B": "TaskB.txt",
+    "C": "TaskC.txt",
 }
 
 # データ出力設定
