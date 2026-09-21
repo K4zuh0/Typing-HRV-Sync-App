@@ -1485,11 +1485,12 @@ class ExperimentApp(QMainWindow):
 # また、ラテン方格法によるパターン（A/B/C）を実験者が明示的に選べるようにすることで、
 # プロトコルのランダム化に伴う「被験者ごとの割り当ての偏りや把握漏れ」を防ぐためです。
 def show_startup_dialog(parent=None) -> Tuple[Optional[str], str]:
-    from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QRadioButton, QDialogButtonBox, QButtonGroup
+    from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QRadioButton, QDialogButtonBox, QButtonGroup, QScrollArea, QWidget
     
     dialog = QDialog(parent)
     dialog.setWindowTitle("実験開始設定")
-    dialog.setMinimumWidth(350)
+    dialog.setMinimumWidth(400)
+    dialog.setMinimumHeight(450)
     
     layout = QVBoxLayout(dialog)
     
@@ -1501,21 +1502,37 @@ def show_startup_dialog(parent=None) -> Tuple[Optional[str], str]:
     
     layout.addSpacing(10)
     layout.addWidget(QLabel("プロトコルパターン（ラテン方格）:"))
+    
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll_widget = QWidget()
+    scroll_layout = QVBoxLayout(scroll_widget)
+    
     pattern_group = QButtonGroup(dialog)
     
-    radio_a = QRadioButton("A: Task1 -> Task2 -> Task3")
-    radio_b = QRadioButton("B: Task2 -> Task3 -> Task1")
-    radio_c = QRadioButton("C: Task3 -> Task1 -> Task2")
+    patterns_text = [
+        ("1", "パターン 1 (低A -> 中B -> 高C)"),
+        ("2", "パターン 2 (中B -> 高C -> 低A)"),
+        ("3", "パターン 3 (高C -> 低A -> 中B)"),
+        ("4", "パターン 4 (低B -> 中C -> 高A)"),
+        ("5", "パターン 5 (中C -> 高A -> 低B)"),
+        ("6", "パターン 6 (高A -> 低B -> 中C)"),
+        ("7", "パターン 7 (低C -> 中A -> 高B)"),
+        ("8", "パターン 8 (中A -> 高B -> 低C)"),
+        ("9", "パターン 9 (高B -> 低C -> 中A)"),
+    ]
     
-    radio_a.setChecked(True)
+    for i, (pat_id, text) in enumerate(patterns_text):
+        radio = QRadioButton(text)
+        if i == 0:
+            radio.setChecked(True)
+        pattern_group.addButton(radio, i + 1)
+        scroll_layout.addWidget(radio)
+        
+    scroll_layout.addStretch()
+    scroll.setWidget(scroll_widget)
+    layout.addWidget(scroll)
     
-    pattern_group.addButton(radio_a, 1)
-    pattern_group.addButton(radio_b, 2)
-    pattern_group.addButton(radio_c, 3)
-    
-    layout.addWidget(radio_a)
-    layout.addWidget(radio_b)
-    layout.addWidget(radio_c)
     layout.addSpacing(10)
     
     buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
@@ -1525,14 +1542,9 @@ def show_startup_dialog(parent=None) -> Tuple[Optional[str], str]:
     
     if dialog.exec() == QDialog.DialogCode.Accepted:
         selected_id = pattern_group.checkedId()
-        pattern = "A"
-        if selected_id == 2:
-            pattern = "B"
-        elif selected_id == 3:
-            pattern = "C"
+        pattern = str(selected_id) if 1 <= selected_id <= 9 else "1"
         return id_input.text(), pattern
-    return None, "A"
-
+    return None, "1"
 
 def main():
     app = QApplication(sys.argv)
